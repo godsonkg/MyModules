@@ -1,10 +1,38 @@
-name: Test Action
+name: Update Guangdong Fuel Price
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"  # 每天 UTC 0 点（北京时间早上 8 点）
 
 jobs:
-  hello:
+  update:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello, Actions 已经跑通了！"
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Update JSON
+        run: |
+          cat > data/guangdong_fuel.json <<EOF
+          {
+            "province": "广东",
+            "updated_at": "$(date '+%Y-%m-%d %H:%M:%S')",
+            "unit": "元/升",
+            "items": [
+              { "name": "92#", "price": 7.13 },
+              { "name": "95#", "price": 7.73 },
+              { "name": "98#", "price": 9.73 },
+              { "name": "0# 柴油", "price": 6.76 }
+            ],
+            "source": "Actions 自动更新 (示例数据)"
+          }
+          EOF
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/guangdong_fuel.json
+          git commit -m "Auto update Guangdong fuel price" || echo "No changes to commit"
+          git push
