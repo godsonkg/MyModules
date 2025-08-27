@@ -1,7 +1,7 @@
 #!name=广东油价·面板
 #!desc=从你的 GitHub JSON 拉取广东省成品油价，展示在 Surge 面板；含缓存&离线回退
 #!author=You
-#!homepage=https://github.com/<your_github_username>/MyModules
+#!homepage=https://github.com/godsonkg/MyModules
 #!icon=fuelpump.fill
 #!category=Info
 
@@ -10,4 +10,4 @@
 
 [Script]
 # 你需要把 <your_github_username> 和仓库名改成自己的
-gd_fuel_price = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/<your_github_username>/MyModules/main/Scripts/gd_fuel_price.js,argument=source=https://raw.githubusercontent.com/<your_github_username>/MyModules/main/data/guangdong_fuel.json&province=广东&ttl=21600,script-update-interval=21600
+gd_fuel_price = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/gd_fuel_price.js,argument=source=https://raw.githubusercontent.com/<your_github_username>/MyModules/main/data/guangdong_fuel.json&province=广东&ttl=21600,script-update-interval=21600
