@@ -3,7 +3,11 @@ name: Update Guangdong Fuel Price
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *"  # 每天 UTC 0 点（北京时间早上 8 点）
+    - cron: "0 0 * * *"  # 北京时间 08:00
+
+# 关键：给 GITHUB_TOKEN 写入代码的权限
+permissions:
+  contents: write
 
 jobs:
   update:
@@ -14,10 +18,11 @@ jobs:
 
       - name: Update JSON
         run: |
-          cat > data/guangdong_fuel.json <<EOF
+          mkdir -p data
+          cat > data/guangdong_fuel.json <<'EOF'
           {
             "province": "广东",
-            "updated_at": "$(date '+%Y-%m-%d %H:%M:%S')",
+            "updated_at": "__WILL_BE_REPLACED__",
             "unit": "元/升",
             "items": [
               { "name": "92#", "price": 7.13 },
@@ -28,11 +33,13 @@ jobs:
             "source": "Actions 自动更新 (示例数据)"
           }
           EOF
+          # 用当前时间替换占位符
+          sed -i "s/__WILL_BE_REPLACED__/$(date '+%Y-%m-%d %H:%M:%S')/g" data/guangdong_fuel.json
 
       - name: Commit changes
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/guangdong_fuel.json
           git commit -m "Auto update Guangdong fuel price" || echo "No changes to commit"
           git push
