@@ -1,10 +1,9 @@
 name: Update Guangdong Fuel Price
 
 on:
+  workflow_dispatch:
   schedule:
-    # 每天北京时间 08:00 执行一次（UTC 0:00）
-    - cron: "0 0 * * *"
-  workflow_dispatch: # 支持手动触发
+    - cron: "0 0 * * *"  # 每天 UTC 0 点（北京时间早上 8 点）
 
 jobs:
   update:
@@ -13,38 +12,27 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Update Guangdong fuel price
+      - name: Update JSON
         run: |
-          import json, requests, datetime, pathlib
-          
-          # 这里写一个获取油价的接口/网页。为了演示，先用“占位接口”：
-          # 实际可以换成你能访问的国内 API 或爬取官方页面。
-          # 假设我们手动设置最新数据：
-          latest = {
-              "province": "广东",
-              "updated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-              "unit": "元/升",
-              "items": [
-                  {"name": "92#", "price": 7.13},
-                  {"name": "95#", "price": 7.73},
-                  {"name": "98#", "price": 9.73},
-                  {"name": "0# 柴油", "price": 6.76}
-              ],
-              "source": "Actions 自动更新（示例数据，待替换接口）"
+          cat > data/guangdong_fuel.json <<EOF
+          {
+            "province": "广东",
+            "updated_at": "$(date '+%Y-%m-%d %H:%M:%S')",
+            "unit": "元/升",
+            "items": [
+              { "name": "92#", "price": 7.13 },
+              { "name": "95#", "price": 7.73 },
+              { "name": "98#", "price": 9.73 },
+              { "name": "0# 柴油", "price": 6.76 }
+            ],
+            "source": "Actions 自动更新 (示例数据)"
           }
-          
-          outpath = pathlib.Path("data/guangdong_fuel.json")
-          outpath.write_text(json.dumps(latest, ensure_ascii=False, indent=2), encoding="utf-8")
-          
+          EOF
+
       - name: Commit changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data/guangdong_fuel.json
-          git commit -m "Auto update Guangdong fuel price"
+          git commit -m "Auto update Guangdong fuel price" || echo "No changes to commit"
           git push
