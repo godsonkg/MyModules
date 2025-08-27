@@ -1,38 +1,12 @@
-#!name=Streaming Unlock Tester · Safe Minimal
-#!desc=最小稳健版：确保策略组能被创建，规则不再报“未知策略”
-#!author=godsonkg
-#!category=Streaming
-
-[Panel]
-NF Probe = script-name=unlock_probe, update-interval=1800
-Disney Probe = script-name=unlock_probe, update-interval=1800, argument=target=disney
-YouTube Premium Probe = script-name=unlock_probe, update-interval=1800, argument=target=yt
-
-[Script]
-unlock_probe = type=generic,timeout=6,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/unlock_probe.js,argument=candidates=US_Candidates|JP_Candidates|HK_Candidates&concurrency=2&target=nf&timeout=6,script-update-interval=86400
+#!name=Test Unlock Groups
+#!desc=最小示例，验证策略组是否被识别
 
 [Proxy Group]
-# —— 不用 emoji、不用行续接、不用 \b，全部 ASCII，避免解析失败 ——
-NoMatch = REJECT
-
-US_Candidates = smart, policy-regex-filter=(?i)(US|USA|United|America|美国|洛杉矶|圣何塞|芝加哥|达拉斯|硅谷|西雅图|LAX|SJC), interval=600, tolerance=100, timeout=5, final-policy=NoMatch
-JP_Candidates = smart, policy-regex-filter=(?i)(JP|Japan|日本|东京|大阪|千叶|埼玉|Tokyo|Osaka|TYO|KIX), interval=600, tolerance=100, timeout=5, final-policy=NoMatch
-HK_Candidates = smart, policy-regex-filter=(?i)(HK|Hong|Kong|香港|铜锣湾|中环|沙田|将军澳|HKG), interval=600, tolerance=100, timeout=5, final-policy=NoMatch
-
-# —— 三个被规则引用的选择组（名字也改为 ASCII，避免任何编码问题）——
-NF_Select = select, US_Candidates, JP_Candidates, HK_Candidates, DIRECT
-DISNEY_Select = select, US_Candidates, JP_Candidates, HK_Candidates, DIRECT
-YT_Select = select, US_Candidates, JP_Candidates, HK_Candidates, DIRECT
+NF_Select = select, DIRECT
+DISNEY_Select = select, DIRECT
+YT_Select = select, DIRECT
 
 [Rule]
-# Netflix
-DOMAIN-SUFFIX,netflix.com,NF_Select
-DOMAIN-SUFFIX,nflxvideo.net,NF_Select
-DOMAIN-SUFFIX,nflximg.net,NF_Select
-DOMAIN-SUFFIX,nflxso.net,NF_Select
-# Disney+
-DOMAIN-SUFFIX,disneyplus.com,DISNEY_Select
-DOMAIN-SUFFIX,bamgrid.com,DISNEY_Select
-# YouTube
 DOMAIN-SUFFIX,youtube.com,YT_Select
-DOMAIN-SUFFIX,googlevideo.com,YT_Select
+DOMAIN-SUFFIX,netflix.com,NF_Select
+DOMAIN-SUFFIX,disneyplus.com,DISNEY_Select
