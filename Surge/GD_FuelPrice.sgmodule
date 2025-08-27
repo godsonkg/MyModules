@@ -9,5 +9,4 @@
 广东油价 = script-name=gd_fuel_price, update-interval=21600
 
 [Script]
-# 你需要把 <your_github_username> 和仓库名改成自己的
 gd_fuel_price = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/gd_fuel_price.js,argument=source=https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.json&province=广东&ttl=21600,script-update-interval=21600
