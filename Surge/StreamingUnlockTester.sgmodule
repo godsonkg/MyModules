@@ -1,0 +1,36 @@
+#!name=流媒体解锁检测·Smart 版
+#!desc=自动检测候选策略/地区组的 Netflix/Disney+/YouTube Premium 解锁情况；可一键写入对应的选择组
+#!author=godsonkg
+#!category=Streaming
+#!icon=play.tv.fill
+
+[Argument]
+candidates=🇺🇸美国候选|🇯🇵日本候选|🇭🇰香港候选
+concurrency=2
+timeout=6
+interval=1800
+
+[Panel]
+NF 解锁检测 = script-name=unlock_probe, update-interval={interval}
+Disney+ 解锁检测 = script-name=unlock_probe, update-interval={interval}, argument=target=disney
+YouTube Premium 解锁检测 = script-name=unlock_probe, update-interval={interval}, argument=target=yt
+
+[Script]
+unlock_probe = type=generic,timeout={timeout},script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/unlock_probe.js,argument=candidates={candidates}&concurrency={concurrency}&target=nf&timeout={timeout},script-update-interval=86400
+
+[Proxy Group]
+🇺🇸美国候选 = smart, policy-regex-filter=(?i)(US|美国|United.*States|Los Angeles|San Jose), interval=600, tolerance=100, timeout=5, final-policy=direct
+🇯🇵日本候选 = smart, policy-regex-filter=(?i)(JP|日本|Tokyo|Osaka), interval=600, tolerance=100, timeout=5, final-policy=direct
+🇭🇰香港候选 = smart, policy-regex-filter=(?i)(HK|香港|Hong.*Kong), interval=600, tolerance=100, timeout=5, final-policy=direct
+
+NF-选择 = select, DIRECT
+DISNEY-选择 = select, DIRECT
+YT-选择 = select, DIRECT
+
+[Rule]
+DOMAIN-SUFFIX,netflix.com,NF-选择
+DOMAIN-SUFFIX,nflxvideo.net,NF-选择
+DOMAIN-SUFFIX,disneyplus.com,DISNEY-选择
+DOMAIN-SUFFIX,bamgrid.com,DISNEY-选择
+DOMAIN-SUFFIX,youtube.com,YT-选择
+DOMAIN-SUFFIX,googlevideo.com,YT-选择
