@@ -1,12 +1,14 @@
 #!name=广东油价·面板
-#!desc=从你的 GitHub JSON 拉取广东省成品油价，展示在 Surge 面板；含缓存&离线回退
-#!author=You
+#!desc=拉取 GitHub 上的 JSON，展示广东省成品油价（92#/95#/98#/0# 柴油）；含本地缓存与离线回退。数据由仓库的 GitHub Actions 自动更新，无需手动维护。
+#!author=godsonkg
 #!homepage=https://github.com/godsonkg/MyModules
 #!icon=fuelpump.fill
 #!category=Info
 
 [Panel]
+# 面板刷新间隔 21600 秒 = 6 小时
 广东油价 = script-name=gd_fuel_price, update-interval=21600
 
 [Script]
+# argument 说明：source=数据 JSON 的 Raw 链接；province=面板标题展示的省份；ttl=本地缓存有效期(秒)
 gd_fuel_price = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/gd_fuel_price.js,argument=source=https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.json&province=广东&ttl=21600,script-update-interval=21600
