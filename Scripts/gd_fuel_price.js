@@ -2,13 +2,13 @@
  * 广东油价 - Surge 面板脚本
  * --------------------------------------------------
  * 作用：从 GitHub 上的 JSON 拉取广东省成品油价，展示在 Surge 面板。
- *      数据由本仓库的 GitHub Actions 自动更新，脚本只负责读取与展示。
+ *      数据由本仓库的 GitHub Actions 抓取并校验，脚本只负责读取与展示。
  *
  * 搭配模块：Surge/GD_FuelPrice.sgmodule（[Panel] + [Script]）
  *
  * argument 参数：
  *   source=<URL>   你的 JSON 原始(Raw)链接，默认指向本仓库的 data/guangdong_fuel.json
- *   ttl=<秒>       本地缓存有效期，默认 21600（6 小时）
+ *   ttl=<秒>       本地缓存有效期，默认 3600（1 小时）
  *   province=广东  面板标题里展示的省份名称
  *
  * 数据容错：远端拉取失败时，依次回退到「本地缓存」与「脚本内置示例」，保证面板不空白。
@@ -16,13 +16,13 @@
  * JSON 结构示例（data/guangdong_fuel.json）：
  *   {
  *     "province": "广东",
- *     "updated_at": "2026-06-08 02:31:18",
+ *     "updated_at": "2026-07-13",
  *     "unit": "元/升",
  *     "items": [
- *       {"name": "92#", "price": 7.13},
- *       {"name": "95#", "price": 7.73},
- *       {"name": "98#", "price": 9.73},
- *       {"name": "0# 柴油", "price": 6.76}
+ *       {"name": "92#", "price": 7.20},
+ *       {"name": "95#", "price": 7.80},
+ *       {"name": "98#", "price": 9.80},
+ *       {"name": "0# 柴油", "price": 6.83}
  *     ],
  *     "source": "数据来源说明"
  *   }
@@ -56,7 +56,7 @@ function parseArgs(str) {
 
 const args = parseArgs(typeof $argument !== 'undefined' ? $argument : '');
 const SOURCE = args.source || 'https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.json';
-const TTL = parseInt(args.ttl || '21600', 10);
+const TTL = parseInt(args.ttl || '3600', 10);
 const PROV = args.province || '广东';
 
 const CACHE_KEY = 'gd_fuel_cache';
@@ -65,28 +65,38 @@ const CACHE_TIME_KEY = 'gd_fuel_cache_time';
 // 内置示例：仅在远端拉取失败且无缓存时兜底，避免面板空白
 const EMBEDDED = {
   province: '广东',
-  updated_at: '示例数据（离线内置）',
+  updated_at: '离线内置（可能过期）',
   unit: '元/升',
   items: [
-    { name: '92#', price: 8.32 },
-    { name: '95#', price: 9.00 },
-    { name: '98#', price: 10.20 },
-    { name: '0# 柴油', price: 8.00 }
+    { name: '92#', price: 7.20 },
+    { name: '95#', price: 7.80 },
+    { name: '98#', price: 9.80 },
+    { name: '0# 柴油', price: 6.83 }
   ],
-  source: '内置示例（网络异常时显示）'
+  price_type: '离线参考指导价',
+  source: '内置兜底（可能过期）'
 };
 
 // 把数据格式化为 Surge 面板对象
 function fmt(data) {
   const lines = (data.items || []).map(it => `${it.name}: ${it.price} ${data.unit || ''}`);
   const updated = data.updated_at || 'N/A';
+  const priceType = data.price_type ? `\n口径：${data.price_type}` : '';
   const src = data.source ? `\n来源：${data.source}` : '';
+  const notice = '\n提示：加油站实际售价可能不同';
   return {
     title: `${PROV}油价`,
-    content: `更新时间：${updated}\n` + lines.join('\n') + src,
+    content: `更新时间：${updated}\n` + lines.join('\n') + priceType + src + notice,
     icon: 'fuelpump.fill',
     'icon-color': '#1E90FF'
   };
+}
+
+// 只接受结构完整、价格合理的数据，避免异常页面污染缓存
+function isValidData(data) {
+  if (!data || !Array.isArray(data.items) || data.items.length < 4) return false;
+  const prices = data.items.map(item => Number(item.price));
+  return prices.every(price => Number.isFinite(price) && price >= 4 && price <= 20);
 }
 
 // 缓存读写
@@ -124,11 +134,14 @@ function pickStatusAndBody(res) {
 
   // 2. 拉取远端 JSON
   try {
-    const res = await $.get({ url: SOURCE, headers: { 'Cache-Control': 'no-cache' } });
+    const sep = SOURCE.includes('?') ? '&' : '?';
+    const requestUrl = `${SOURCE}${sep}_=${Date.now()}`;
+    const res = await $.get({ url: requestUrl, headers: { 'Cache-Control': 'no-cache' } });
     const { status, body } = pickStatusAndBody(res);
 
     if (status >= 200 && status < 300 && body) {
       const data = JSON.parse(body);
+      if (!isValidData(data)) throw new Error('油价数据结构或价格范围异常');
       writeCache(data);
       return $.done(fmt(data));
     }

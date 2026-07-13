@@ -1,6 +1,6 @@
 # 广东油价查看（Surge 面板模块）
 
-在 Surge 的面板（Dashboard）上实时显示广东省成品油价（92# / 95# / 98# / 0# 柴油）。
+在 Surge 的面板（Dashboard）上显示广州成品油参考指导价（92# / 95# / 98# / 0# 柴油）。加油站实际售价会因品牌、会员优惠和活动不同而有差异。
 价格数据存放在本仓库的 JSON 文件中，并由 GitHub Actions 定时**自动更新**，你无需手动维护。
 
 > 这是一个开箱即用的模块：直接安装下面的链接即可，不需要自己建仓库或改任何配置。
@@ -9,12 +9,14 @@
 
 ```
 广东油价
-更新时间：2026-06-08 02:31:18
-92#: 7.13 元/升
-95#: 7.73 元/升
-98#: 9.73 元/升
-0# 柴油: 6.76 元/升
-来源：Actions 自动更新
+更新时间：2026-07-13
+92#: 7.20 元/升
+95#: 7.80 元/升
+98#: 9.80 元/升
+0# 柴油: 6.83 元/升
+口径：参考指导价
+来源：广州油价页
+提示：加油站实际售价可能不同
 ```
 
 ## 安装（在 Surge 中添加）
@@ -38,14 +40,14 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/GD_FuelPrice.sgm
 https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.json
 ```
 
-该 JSON 已由仓库内的 **GitHub Actions 工作流定时自动更新**，所以面板会跟着自动刷新（默认缓存 6 小时）。
-为保证稳定，脚本还内置了两层兜底：**本地缓存**（上次成功的数据）和**离线示例**（万一网络不通时显示）。
+该 JSON 由仓库内的 **GitHub Actions 工作流每天抓取并校验**。只有价格发生变化时才提交更新，面板默认缓存 1 小时。数据口径是参考指导价，不代表某一家加油站的实时成交价。
+为保证稳定，脚本还内置了两层兜底：**本地缓存**（上次成功的数据）和**离线兜底**（万一网络不通时显示）。
 
 ## 自定义
 
 模块的行为由 `Surge/GD_FuelPrice.sgmodule` 控制，常用可调项：
 
-- **刷新间隔**：修改 `[Panel]` 里的 `update-interval`（单位：秒，默认 `21600` = 6 小时）。
+- **刷新间隔**：修改 `[Panel]` 里的 `update-interval`（单位：秒，默认 `3600` = 1 小时）。
 - **缓存时长**：修改 `[Script]` argument 里的 `ttl`（单位：秒）。
 - **展示省份名**：修改 argument 里的 `province=广东`（仅影响面板标题文字）。
 - **样式**：在脚本 `fmt()` 里可调整 `icon`、`icon-color`、标题与字段排版。
@@ -55,15 +57,16 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.js
 ```json
 {
   "province": "广东",
-  "updated_at": "2026-06-08 02:31:18",
+  "updated_at": "2026-07-13",
   "unit": "元/升",
   "items": [
-    { "name": "92#", "price": 7.13 },
-    { "name": "95#", "price": 7.73 },
-    { "name": "98#", "price": 9.73 },
-    { "name": "0# 柴油", "price": 6.76 }
+    { "name": "92#", "price": 7.20 },
+    { "name": "95#", "price": 7.80 },
+    { "name": "98#", "price": 9.80 },
+    { "name": "0# 柴油", "price": 6.83 }
   ],
-  "source": "数据来源说明"
+  "price_type": "参考指导价",
+  "source": "广州油价页（参考指导价；加油站实际价可能不同）"
 }
 ```
 
@@ -78,7 +81,8 @@ MyModules/
 ├─ Surge/
 │  └─ GD_FuelPrice.sgmodule   # Surge 模块（面板 + 脚本定义）
 ├─ Scripts/
-│  └─ gd_fuel_price.js        # 拉取并格式化油价的面板脚本
+│  ├─ gd_fuel_price.js        # 拉取并格式化油价的面板脚本
+│  └─ update_fuel.py          # 抓取并校验广州参考指导价
 └─ data/
    └─ guangdong_fuel.json     # 油价数据（由 Actions 自动更新）
 ```
@@ -86,10 +90,13 @@ MyModules/
 ## 常见问题
 
 **面板不更新 / 一直是旧价格？**
-默认缓存为 6 小时，可在 Surge 面板下拉刷新，或把 `update-interval` / `ttl` 调小。
+默认缓存为 1 小时，可在 Surge 面板下拉刷新，或把 `update-interval` / `ttl` 调小。
 若 GitHub Raw 访问受限，可能拉取失败，此时面板会显示缓存或内置示例。
 
-**面板显示「离线内置」示例？**
+**为什么和某个加油站的价格不一样？**
+面板展示的是城市参考指导价，不是单站成交价。品牌、会员、支付渠道和限时活动都会让实际站价上下浮动。
+
+**面板显示「离线内置」数据？**
 说明脚本没能成功拉到数据（多为网络不通或 Raw 被限制）。网络恢复后刷新面板即可。
 
 **想看别的省份？**
