@@ -1,12 +1,27 @@
 {
   "province": "广东",
-  "updated_at": "2026-07-13 01:27:50",
+  "city": "广州",
+  "updated_at": "2026-07-13",
   "unit": "元/升",
+  "price_type": "参考指导价",
   "items": [
-    { "name": "92#", "price": 7.13 },
-    { "name": "95#", "price": 7.73 },
-    { "name": "98#", "price": 9.73 },
-    { "name": "0# 柴油", "price": 6.76 }
+    {
+      "name": "92#",
+      "price": 7.2
+    },
+    {
+      "name": "95#",
+      "price": 7.8
+    },
+    {
+      "name": "98#",
+      "price": 9.8
+    },
+    {
+      "name": "0# 柴油",
+      "price": 6.83
+    }
   ],
-  "source": "Actions 自动更新 (示例数据)"
+  "source": "广州油价页（参考指导价；加油站实际价可能不同）",
+  "source_url": "https://oil.qqday.com/city/440100.htm"
 }
