@@ -10,10 +10,12 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 
-SOURCE_URL = "https://oil.qqday.com/city/440100.htm"
+OFFICIAL_INDEX_URL = "https://drc.gd.gov.cn/spjg/index.html"
+REFERENCE_URL = "https://oil.qqday.com/city/440100.htm"
 DEFAULT_OUTPUT = Path("data/guangdong_fuel.json")
 PRICE_NAMES = ("92#", "95#", "98#", "0# 柴油")
 
@@ -32,9 +34,43 @@ def fetch_page(url: str) -> str:
     return raw.decode(charset, errors="replace")
 
 
-def parse_prices(page: str) -> tuple[str, list[float]]:
+def page_text(page: str) -> str:
     text = re.sub(r"<[^>]+>", " ", page)
-    text = html.unescape(re.sub(r"\s+", " ", text))
+    return html.unescape(re.sub(r"\s+", " ", text))
+
+
+def find_latest_official_article(index_page: str) -> tuple[str, str]:
+    pattern = re.compile(
+        r'href=["\']([^"\']+)["\'][^>]*>\s*'
+        r'(\d{4})年(\d{1,2})月(\d{1,2})日[^<]*成品油价格[^<]*调整'
+    )
+    match = pattern.search(index_page)
+    if not match:
+        raise ValueError("未在广东省发改委列表找到最新成品油调价公告")
+    effective_date = datetime(
+        int(match.group(2)), int(match.group(3)), int(match.group(4))
+    ).strftime("%Y-%m-%d")
+    return urljoin(OFFICIAL_INDEX_URL, match.group(1)), effective_date
+
+
+def parse_official_prices(page: str) -> list[float]:
+    text = page_text(page)
+    patterns = (
+        r"92号汽油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
+        r"95号汽油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
+        r"0号柴油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
+    )
+    prices = []
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            raise ValueError("广东省发改委公告的价格表解析不完整")
+        prices.append(round(float(match.group(1)), 2))
+    return prices
+
+
+def parse_reference_prices(page: str) -> tuple[str, list[float]]:
+    text = page_text(page)
     pattern = re.compile(
         r"(\d{4})年(\d{1,2})月(\d{1,2})日，广州最新油价如下：\s*"
         r"92号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
@@ -74,41 +110,59 @@ def current_prices(data: dict) -> list[float] | None:
     return [round(float(by_name[name]), 2) for name in PRICE_NAMES]
 
 
-def update_file(output: Path, source_url: str) -> bool:
-    source_date, prices = parse_prices(fetch_page(source_url))
+def update_file(output: Path, official_index_url: str, reference_url: str) -> bool:
+    index_page = fetch_page(official_index_url)
+    official_url, effective_date = find_latest_official_article(index_page)
+    official_92, official_95, official_diesel = parse_official_prices(
+        fetch_page(official_url)
+    )
+    _, reference_prices = parse_reference_prices(fetch_page(reference_url))
+    reference_92, reference_95, reference_98, reference_diesel = reference_prices
+    official = [official_92, official_95, official_diesel]
+    reference_comparable = [reference_92, reference_95, reference_diesel]
+    if any(abs(a - b) > 0.01 for a, b in zip(official, reference_comparable)):
+        raise ValueError(
+            f"官方价格与广州参考页不一致: official={official}, "
+            f"reference={reference_comparable}"
+        )
+    prices = [official_92, official_95, reference_98, official_diesel]
+    validate_prices(prices)
     current = load_current(output)
-    if current_prices(current) == prices and current.get("price_type") == "参考指导价":
+    price_type = "92#/95#/柴油为最高零售价；98#为广州参考价"
+    if current_prices(current) == prices and current.get("price_type") == price_type:
         print(f"价格未变化，保留现有文件: {prices}")
         return False
 
     data = {
         "province": "广东",
         "city": "广州",
-        "updated_at": source_date,
+        "updated_at": effective_date,
         "unit": "元/升",
-        "price_type": "参考指导价",
+        "price_type": price_type,
         "items": [
             {"name": name, "price": price}
             for name, price in zip(PRICE_NAMES, prices)
         ],
-        "source": "广州油价页（参考指导价；加油站实际价可能不同）",
-        "source_url": source_url,
+        "source": "广东省发改委最高零售价；98#为广州参考价",
+        "source_url": official_url,
+        "reference_source_url": reference_url,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"已更新 {output}: {prices}（来源日期 {source_date}）")
+    print(f"已更新 {output}: {prices}（执行日期 {effective_date}）")
     return True
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", default=SOURCE_URL)
+    parser.add_argument("--official-index", default=OFFICIAL_INDEX_URL)
+    parser.add_argument("--reference", default=REFERENCE_URL)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     try:
-        update_file(args.output, args.source)
+        update_file(args.output, args.official_index, args.reference)
     except Exception as exc:
         print(f"油价更新失败，保留原数据: {exc}", file=sys.stderr)
         return 1
