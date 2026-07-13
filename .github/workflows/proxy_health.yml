@@ -1,0 +1,47 @@
+name: Proxy Health Checker
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/proxy_health/**"
+      - ".github/workflows/proxy_health.yml"
+  pull_request:
+    paths:
+      - "tools/proxy_health/**"
+      - ".github/workflows/proxy_health.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tools/proxy_health/tests -v
+
+      - name: Check sanitized examples
+        run: |
+          python tools/proxy_health/proxy_health.py check tools/proxy_health/examples/loon.conf
+          python tools/proxy_health/proxy_health.py check tools/proxy_health/examples/surge.conf
+          python tools/proxy_health/proxy_health.py test tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json
+          python tools/proxy_health/proxy_health.py compare tools/proxy_health/examples/surge.conf tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json
+
+      - name: Build Markdown report artifact
+        run: |
+          python tools/proxy_health/proxy_health.py compare tools/proxy_health/examples/surge.conf tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json --format markdown --output proxy-health-report.md
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-health-report
+          path: proxy-health-report.md

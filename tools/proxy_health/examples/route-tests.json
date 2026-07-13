@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "host": "qidian.com",
+      "expect": "DIRECT"
+    },
+    {
+      "host": "qidian.qpic.cn",
+      "expect": "AI"
+    },
+    {
+      "host": "api.openai.com",
+      "expect": "AI"
+    },
+    {
+      "host": "www.youtube.com",
+      "expect": "Media"
+    }
+  ]
+}
