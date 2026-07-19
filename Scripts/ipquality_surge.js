@@ -3,7 +3,7 @@
  *
  * 原始检测逻辑：MaYIHEI/paperclip loon/ipquality/ipquality.js
  * 适配内容：
- *   1. 通过 Surge HTTP API 自动识别主策略组和当前节点
+ *   1. Surge 模块参数 policy -> 目标节点或策略组
  *   2. Loon $httpClient 的 node -> Surge policy
  *   3. Loon htmlMessage -> Surge 纯文本结果页
  *   4. Loon 通知 openUrl -> Surge open-url action
@@ -12,26 +12,18 @@
  * 避免上游更新后悄悄绕过指定策略、误报当前默认出口。
  */
 
-const ADAPTER_VERSION = "2026-07-19.s3";
+const ADAPTER_VERSION = "2026-07-19.s4";
 const UPSTREAM_URL = "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/loon/ipquality/ipquality.js";
 const options = parseArguments(typeof $argument === "string" ? $argument : "");
 const maskIP = readBoolean(options.mask, false);
 const mediaTest = readBoolean(options.media, true);
 const mapNotification = readBoolean(options.map, false);
-let targetPolicy = "";
-let displayPolicy = "";
+const targetPolicy = clean(options.policy) || "PROXY";
+const displayPolicy = targetPolicy;
 
 console.log(`[INFO] Surge IPQuality adapter ${ADAPTER_VERSION}`);
-resolvePolicy(clean(options.policy), (resolved) => {
-    if (!resolved || !resolved.routePolicy) {
-        finish("没有找到可用于检测的 Surge 策略组");
-        return;
-    }
-    targetPolicy = resolved.routePolicy;
-    displayPolicy = resolved.displayPolicy || targetPolicy;
-    console.log(`[INFO] 目标策略: ${displayPolicy}`);
-    loadUpstream();
-});
+console.log(`[INFO] 目标策略: ${displayPolicy}`);
+loadUpstream();
 
 function loadUpstream() {
     $httpClient.get({
@@ -118,84 +110,6 @@ function adaptSource(source) {
     );
 
     return `${surgeHelpersSource()}\n${result}`;
-}
-
-function resolvePolicy(manualPolicy, callback) {
-    if (manualPolicy) {
-        callback({ routePolicy: manualPolicy, displayPolicy: manualPolicy });
-        return;
-    }
-    if (typeof $httpAPI !== "function") {
-        callback({ routePolicy: "PROXY", displayPolicy: "PROXY" });
-        return;
-    }
-    $httpAPI("GET", "v1/policy_groups", null, (payload) => {
-        const groups = extractPolicyGroups(payload);
-        const preferredNames = [
-            "Proxy", "PROXY", "代理", "节点选择", "节点", "代理选择",
-            "全球加速", "兜底分流", "主策略", "Proxy Group",
-        ];
-        let selected = null;
-        for (let index = 0; index < preferredNames.length && !selected; index += 1) {
-            selected = groups.find((group) => group.name === preferredNames[index]) || null;
-        }
-        if (!selected) {
-            selected = groups.find((group) => /select|static|manual/i.test(group.type)) || null;
-        }
-        if (!selected && groups.length) selected = groups[0];
-        if (!selected) {
-            callback(null);
-            return;
-        }
-        resolveSelectedNode(selected.name, (node) => {
-            callback({
-                routePolicy: selected.name,
-                displayPolicy: node && node !== selected.name
-                    ? `${selected.name} → ${node}`
-                    : selected.name,
-            });
-        });
-    });
-}
-
-function resolveSelectedNode(groupName, callback) {
-    $httpAPI(
-        "GET",
-        `v1/policy_groups/select?group_name=${encodeURIComponent(groupName)}`,
-        null,
-        (payload) => callback(clean(payload && (payload.policy || payload.selected)))
-    );
-}
-
-function extractPolicyGroups(payload) {
-    const found = [];
-    const seen = {};
-    function add(name, type) {
-        const cleanName = clean(name);
-        if (!cleanName || seen[cleanName]) return;
-        seen[cleanName] = true;
-        found.push({ name: cleanName, type: clean(type) });
-    }
-    function visit(value, depth, keyHint) {
-        if (!value || depth > 4) return;
-        if (Array.isArray(value)) {
-            value.forEach((item) => visit(item, depth + 1, ""));
-            return;
-        }
-        if (typeof value !== "object") return;
-        const name = value.name || value.group_name || value.groupName;
-        const type = value.type || value.group_type || value.groupType;
-        const hasOptions = Array.isArray(value.policies) || Array.isArray(value.options)
-            || Array.isArray(value.children);
-        if (name && (hasOptions || type)) add(name, type);
-        if (keyHint && hasOptions) add(keyHint, type);
-        Object.keys(value).forEach((key) => {
-            if (["name", "group_name", "groupName", "type", "group_type", "groupType"].indexOf(key) >= 0) return;
-            visit(value[key], depth + 1, key);
-        });
-    }
-    visit(payload, 0, "");
-    return found;
 }
 
 function surgeHelpersSource() {
