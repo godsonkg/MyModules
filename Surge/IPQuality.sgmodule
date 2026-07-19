@@ -4,12 +4,11 @@
 #!homepage=https://github.com/godsonkg/MyModules
 #!icon=shield.lefthalf.filled
 #!category=Tools
-#!system=ios,mac
 #!arguments=policy:PROXY,media:true,mask:false
-#!arguments-desc=policy=要检测的节点/策略组名称；media=是否检测流媒体与 AI；mask=是否对出口 IP 打码
+#!arguments-desc=policy: 要检测的节点或策略组名称，须与 Surge 中完全一致\nmedia: 是否检测流媒体与 AI（true/false）\nmask: 是否对出口 IP 打码（true/false）
 
 # 使用：把 policy 改为 Surge 中已有的节点或策略组名称。
-# 运行：Surge「脚本」页面 → 长按“节点 IP 质量检测”→ 运行。
+# 运行：Surge「脚本」页面 → 长按 节点 IP 质量检测 → 运行。
 
 [Script]
 节点 IP 质量检测 = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,script-update-interval=0,argument="policy={{{policy}}}&media={{{media}}}&mask={{{mask}}}"
