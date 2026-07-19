@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch Guangzhou reference fuel prices and update the repository JSON safely."""
+"""Fetch Guangdong fuel prices and update the repository JSON safely."""
 
 from __future__ import annotations
 
@@ -116,20 +116,42 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
     official_92, official_95, official_diesel = parse_official_prices(
         fetch_page(official_url)
     )
-    _, reference_prices = parse_reference_prices(fetch_page(reference_url))
+    reference_date, reference_prices = parse_reference_prices(fetch_page(reference_url))
     reference_92, reference_95, reference_98, reference_diesel = reference_prices
     official = [official_92, official_95, official_diesel]
     reference_comparable = [reference_92, reference_95, reference_diesel]
-    if any(abs(a - b) > 0.01 for a, b in zip(official, reference_comparable)):
-        raise ValueError(
-            f"官方价格与广州参考页不一致: official={official}, "
-            f"reference={reference_comparable}"
-        )
-    prices = [official_92, official_95, reference_98, official_diesel]
-    validate_prices(prices)
     current = load_current(output)
-    price_type = "92#/95#/柴油为最高零售价；98#为广州参考价"
-    if current_prices(current) == prices and current.get("price_type") == price_type:
+    existing_prices = current_prices(current)
+    reference_matches = all(
+        abs(a - b) <= 0.01 for a, b in zip(official, reference_comparable)
+    )
+
+    if reference_matches:
+        price_98 = reference_98
+        price_type = "92#/95#/柴油为广东省最高零售价；98#为广州参考价"
+        reference_status = "第三方参考价已与本轮官方调价同步"
+    else:
+        if existing_prices is None:
+            raise ValueError(
+                "第三方页面尚未同步本轮调价，且没有可保留的历史 98# 参考价"
+            )
+        price_98 = existing_prices[2]
+        price_type = "92#/95#/柴油为广东省最高零售价；98#暂沿用最近一次广州参考价"
+        reference_status = "第三方来源尚未同步本轮调价，98#暂沿用最近一次参考价"
+        print(
+            f"警告: 官方价格已更新为 {official}，第三方仍为 "
+            f"{reference_comparable}；98# 暂保留 {price_98}",
+            file=sys.stderr,
+        )
+
+    prices = [official_92, official_95, price_98, official_diesel]
+    validate_prices(prices)
+    if (
+        existing_prices == prices
+        and current.get("price_type") == price_type
+        and current.get("source_url") == official_url
+        and current.get("reference_updated_at") == reference_date
+    ):
         print(f"价格未变化，保留现有文件: {prices}")
         return False
 
@@ -146,12 +168,14 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
         "source": "广东省发改委最高零售价；98#为广州参考价",
         "source_url": official_url,
         "reference_source_url": reference_url,
+        "reference_updated_at": reference_date,
+        "reference_status": reference_status,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"已更新 {output}: {prices}（执行日期 {effective_date}）")
+    print(f"已更新 {output}: {prices}（官方执行日期 {effective_date}）")
     return True
 
 
