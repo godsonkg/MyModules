@@ -12,7 +12,7 @@
  * 避免上游更新后悄悄绕过指定策略、误报当前默认出口。
  */
 
-const ADAPTER_VERSION = "2026-07-19.s1";
+const ADAPTER_VERSION = "2026-07-19.s2";
 const UPSTREAM_URL = "https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/loon/ipquality/ipquality.js";
 const options = parseArguments(typeof $argument === "string" ? $argument : "");
 const targetPolicy = clean(options.policy) || "PROXY";
@@ -25,7 +25,7 @@ console.log(`[INFO] 目标策略: ${targetPolicy}`);
 
 $httpClient.get({
     url: UPSTREAM_URL,
-    policy: "DIRECT",
+    policy: targetPolicy,
     timeout: 10,
     headers: {
         Accept: "text/plain,*/*",
@@ -90,6 +90,11 @@ function adaptSource(source) {
     result = result.replace(
         "{ openUrl: basic.map }",
         '{ action: "open-url", url: basic.map }'
+    );
+    result = result.replace('source: "Loon",', 'source: "Surge",');
+    result = result.replace(
+        "Loon 不提供节点 TCP/DNS API",
+        "Surge 通用脚本不提供节点 TCP/DNS API"
     );
     result = result.replace(
         'title: "\\u200B",',
