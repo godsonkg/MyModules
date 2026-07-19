@@ -15,4 +15,4 @@
 # Surge 不提供 Loon 节点页 generic 动作的同等节点参数，因此通过模块参数指定 POLICY。
 
 [Script]
-节点 IP 质量检测 = type=generic,timeout=60,engine=webview,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,script-update-interval=86400,argument=policy=%POLICY%&mask=%MASK_IP%&media=%MEDIA_TEST%&map=%MAP_NOTIFICATION%
+节点 IP 质量检测 = type=generic,timeout=60,engine=webview,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,script-update-interval=86400,argument="policy=%POLICY%&mask=%MASK_IP%&media=%MEDIA_TEST%&map=%MAP_NOTIFICATION%"
