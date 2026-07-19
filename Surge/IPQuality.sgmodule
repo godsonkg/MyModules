@@ -1,5 +1,5 @@
 #!name=节点 IP 质量检测（Surge）
-#!desc=检测指定 Surge 节点或策略组的出口 IP 类型、归属、风险与纯净度，以及流媒体与 AI 可用性。启用模块时把 policy 改为 Surge 中已有的节点或策略组名称（须完全一致）。
+#!desc=以面板形式检测指定 Surge 节点或策略组的出口 IP 类型、归属、风险与纯净度，以及流媒体与 AI 可用性。启用后在首页面板点按刷新即可运行；policy 需与 Surge 中节点或策略组名称完全一致。
 #!author=godsonkg
 #!homepage=https://github.com/godsonkg/MyModules
 #!icon=shield.lefthalf.filled
@@ -7,8 +7,11 @@
 #!arguments=policy:PROXY,media:true,mask:false
 #!arguments-desc=policy: 要检测的节点或策略组名称，须与 Surge 中完全一致\nmedia: 是否检测流媒体与 AI（true/false）\nmask: 是否对出口 IP 打码（true/false）
 
-# 使用：把 policy 改为 Surge 中已有的节点或策略组名称。
-# 运行：Surge「脚本」页面 → 长按 节点 IP 质量检测 → 运行。
+# 使用：启用模块后，Surge 首页会出现“节点 IP 质量检测”面板，点按面板即可刷新运行。
+# policy 请填 Surge 中已有的节点或策略组名称。
+
+[Panel]
+节点IP质量检测 = script-name=ipquality,title="节点 IP 质量检测",update-interval=0
 
 [Script]
-节点 IP 质量检测 = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,script-update-interval=0,argument="policy={{{policy}}}&media={{{media}}}&mask={{{mask}}}"
+ipquality = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,argument="policy={{{policy}}}&media={{{media}}}&mask={{{mask}}}",script-update-interval=0
