@@ -1,0 +1,18 @@
+#!name=节点 IP 质量检测（Surge）
+#!desc=检测指定 Surge 策略或节点的出口 IP 类型、原始风险、风险标记，以及流媒体与 AI 可用性。安装后请把 POLICY 改成需要检测的策略/节点名称。
+#!author=MaYIHEI（原始检测逻辑） / Codex（Surge 适配）
+#!homepage=https://github.com/MaYIHEI/paperclip/tree/main/loon/ipquality
+#!system=ios
+#!arguments=POLICY=PROXY&MASK_IP=false&MEDIA_TEST=true&MAP_NOTIFICATION=false
+
+# 参数说明：
+# POLICY           Surge 中已有的策略组或节点名称，区分大小写；默认 PROXY。
+# MASK_IP          true=隐藏 IP 后半段，false=完整显示。
+# MEDIA_TEST       true=检测流媒体与 AI，false=仅检测 IP 质量。
+# MAP_NOTIFICATION true=检测后发送 Apple 地图通知，false=不发送。
+#
+# 使用：在 Surge「脚本」页面长按“节点 IP 质量检测”，选择运行。
+# Surge 不提供 Loon 节点页 generic 动作的同等节点参数，因此通过模块参数指定 POLICY。
+
+[Script]
+节点 IP 质量检测 = type=generic,timeout=60,engine=webview,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/ipquality_surge.js,script-update-interval=86400,argument=policy=%POLICY%&mask=%MASK_IP%&media=%MEDIA_TEST%&map=%MAP_NOTIFICATION%
