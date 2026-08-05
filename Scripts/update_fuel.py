@@ -8,8 +8,10 @@ import html
 import json
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
@@ -20,7 +22,11 @@ DEFAULT_OUTPUT = Path("data/guangdong_fuel.json")
 PRICE_NAMES = ("92#", "95#", "98#", "0# 柴油")
 
 
-def fetch_page(url: str) -> str:
+class NetworkError(Exception):
+    """源站临时不可达（连接失败/超时），属于基础设施问题而非数据/代码错误。"""
+
+
+def fetch_page(url: str, *, retries: int = 3, backoff: float = 2.0) -> str:
     request = Request(
         url,
         headers={
@@ -28,10 +34,22 @@ def fetch_page(url: str) -> str:
             "Accept": "text/html,application/xhtml+xml",
         },
     )
-    with urlopen(request, timeout=30) as response:
-        raw = response.read()
-        charset = response.headers.get_content_charset() or "utf-8"
-    return raw.decode(charset, errors="replace")
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urlopen(request, timeout=30) as response:
+                raw = response.read()
+                charset = response.headers.get_content_charset() or "utf-8"
+            return raw.decode(charset, errors="replace")
+        except HTTPError:
+            # HTTP 状态码错误（4xx/5xx）视为真实问题，直接抛出以便告警。
+            raise
+        except (URLError, TimeoutError, OSError) as exc:
+            # 连接层错误（如“Network is unreachable”/超时）多为临时抖动，重试。
+            last_error = exc
+            if attempt < retries:
+                time.sleep(backoff * attempt)
+    raise NetworkError(f"源站临时不可达，已重试 {retries} 次：{url} -> {last_error}")
 
 
 def page_text(page: str) -> str:
@@ -187,7 +205,12 @@ def main() -> int:
     args = parser.parse_args()
     try:
         update_file(args.output, args.official_index, args.reference)
+    except NetworkError as exc:
+        # 临时网络问题：软跳过。数据保持不变，不将工作流标记为失败，避免误报。
+        print(f"::warning::油价更新跳过（源站临时不可达，非代码错误）: {exc}")
+        return 0
     except Exception as exc:
+        # 解析/校验/HTTP 等真实异常：仍以失败退出，保留原数据并触发告警。
         print(f"油价更新失败，保留原数据: {exc}", file=sys.stderr)
         return 1
     return 0
