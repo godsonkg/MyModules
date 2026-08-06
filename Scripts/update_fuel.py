@@ -23,7 +23,18 @@ PRICE_NAMES = ("92#", "95#", "98#", "0# 柴油")
 
 
 class NetworkError(Exception):
-    """源站临时不可达（连接失败/超时），属于基础设施问题而非数据/代码错误。"""
+    """源站临时不可达（连接失败/超时/网关错误），属于基础设施问题而非数据/代码错误。"""
+
+
+# 表示“源站或其网关临时故障”的状态码：重试后仍失败则软跳过，不视为代码/数据问题。
+# 408 请求超时、429 频率限制、5xx 服务端错误，以及 Cloudflare 专有的 520-527
+# （如 522 Origin Connection Time-out，本质就是回源连不上）。
+TRANSIENT_HTTP_STATUSES = frozenset({408, 429}) | frozenset(range(500, 528))
+
+# 数据陈旧超过该天数时，即便失败原因是“临时性”也升级为告警，
+# 避免源站长期不可用被软跳过永久掩盖。国内成品油约每 10 个工作日调价一次，
+# 取 45 天可在不误报的前提下兜住长期故障。
+STALE_ALERT_DAYS = 45
 
 
 def fetch_page(url: str, *, retries: int = 3, backoff: float = 2.0) -> str:
@@ -41,15 +52,30 @@ def fetch_page(url: str, *, retries: int = 3, backoff: float = 2.0) -> str:
                 raw = response.read()
                 charset = response.headers.get_content_charset() or "utf-8"
             return raw.decode(charset, errors="replace")
-        except HTTPError:
-            # HTTP 状态码错误（4xx/5xx）视为真实问题，直接抛出以便告警。
-            raise
+        except HTTPError as exc:
+            # 4xx（404/403 等）说明地址或访问方式真的有问题，直接抛出告警；
+            # 网关/服务端临时故障则与连接失败同等对待，重试。
+            if exc.code not in TRANSIENT_HTTP_STATUSES:
+                raise
+            last_error = exc
+            if attempt < retries:
+                time.sleep(backoff * attempt)
         except (URLError, TimeoutError, OSError) as exc:
             # 连接层错误（如“Network is unreachable”/超时）多为临时抖动，重试。
             last_error = exc
             if attempt < retries:
                 time.sleep(backoff * attempt)
     raise NetworkError(f"源站临时不可达，已重试 {retries} 次：{url} -> {last_error}")
+
+
+def days_since_update(path: Path) -> int | None:
+    """返回现有数据的 updated_at 距今天数；无法判断时返回 None。"""
+    try:
+        updated_at = load_current(path).get("updated_at", "")
+        recorded = datetime.strptime(str(updated_at), "%Y-%m-%d")
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    return (datetime.now() - recorded).days
 
 
 def page_text(page: str) -> str:
@@ -206,7 +232,16 @@ def main() -> int:
     try:
         update_file(args.output, args.official_index, args.reference)
     except NetworkError as exc:
-        # 临时网络问题：软跳过。数据保持不变，不将工作流标记为失败，避免误报。
+        # 临时网络问题：软跳过，数据保持不变，不标红，避免误报。
+        # 但若数据已长期未更新，说明可能不再是“临时”问题，仍需告警。
+        stale_days = days_since_update(args.output)
+        if stale_days is not None and stale_days > STALE_ALERT_DAYS:
+            print(
+                f"油价更新失败：源站已持续不可用，且数据已 {stale_days} 天未更新"
+                f"（超过 {STALE_ALERT_DAYS} 天阈值），请检查数据源: {exc}",
+                file=sys.stderr,
+            )
+            return 1
         print(f"::warning::油价更新跳过（源站临时不可达，非代码错误）: {exc}")
         return 0
     except Exception as exc:
