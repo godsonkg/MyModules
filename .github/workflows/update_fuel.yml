@@ -19,6 +19,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Run fuel updater regression tests
+        run: python3 -m unittest discover -s Scripts -p "test_update_fuel.py" -v
+
       - name: Fetch and validate current prices
         run: python3 Scripts/update_fuel.py
 
