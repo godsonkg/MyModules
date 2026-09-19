@@ -154,39 +154,68 @@ def current_prices(data: dict) -> list[float] | None:
     return [round(float(by_name[name]), 2) for name in PRICE_NAMES]
 
 
+def fetch_reference_prices(
+    reference_url: str,
+) -> tuple[str, list[float]] | None:
+    """Best-effort fetch of the optional Guangzhou 98# reference price.
+
+    The official Guangdong notice is authoritative for 92#/95#/diesel. The
+    third-party page is only needed for 98#, so its outages and layout changes
+    must not block official price updates.
+    """
+    try:
+        return parse_reference_prices(fetch_page(reference_url))
+    except (NetworkError, HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+        print(
+            f"::warning::第三方 98# 参考来源不可用，将沿用最近一次可信价格: {exc}",
+            file=sys.stderr,
+        )
+        return None
+
+
 def update_file(output: Path, official_index_url: str, reference_url: str) -> bool:
     index_page = fetch_page(official_index_url)
     official_url, effective_date = find_latest_official_article(index_page)
     official_92, official_95, official_diesel = parse_official_prices(
         fetch_page(official_url)
     )
-    reference_date, reference_prices = parse_reference_prices(fetch_page(reference_url))
-    reference_92, reference_95, reference_98, reference_diesel = reference_prices
     official = [official_92, official_95, official_diesel]
-    reference_comparable = [reference_92, reference_95, reference_diesel]
     current = load_current(output)
     existing_prices = current_prices(current)
-    reference_matches = all(
-        abs(a - b) <= 0.01 for a, b in zip(official, reference_comparable)
-    )
+    reference_result = fetch_reference_prices(reference_url)
 
-    if reference_matches:
-        price_98 = reference_98
-        price_type = "92#/95#/柴油为广东省最高零售价；98#为广州参考价"
-        reference_status = "第三方参考价已与本轮官方调价同步"
-    else:
+    if reference_result is None:
         if existing_prices is None:
-            raise ValueError(
-                "第三方页面尚未同步本轮调价，且没有可保留的历史 98# 参考价"
-            )
+            raise ValueError("第三方 98# 参考来源不可用，且没有可沿用的历史 98# 参考价")
         price_98 = existing_prices[2]
+        reference_date = current.get("reference_updated_at", "")
         price_type = "92#/95#/柴油为广东省最高零售价；98#暂沿用最近一次广州参考价"
-        reference_status = "第三方来源尚未同步本轮调价，98#暂沿用最近一次参考价"
-        print(
-            f"警告: 官方价格已更新为 {official}，第三方仍为 "
-            f"{reference_comparable}；98# 暂保留 {price_98}",
-            file=sys.stderr,
+        reference_status = "第三方参考来源本次不可用，98#暂沿用最近一次参考价"
+    else:
+        reference_date, reference_prices = reference_result
+        reference_92, reference_95, reference_98, reference_diesel = reference_prices
+        reference_comparable = [reference_92, reference_95, reference_diesel]
+        reference_matches = all(
+            abs(a - b) <= 0.01 for a, b in zip(official, reference_comparable)
         )
+
+        if reference_matches:
+            price_98 = reference_98
+            price_type = "92#/95#/柴油为广东省最高零售价；98#为广州参考价"
+            reference_status = "第三方参考价已与本轮官方调价同步"
+        else:
+            if existing_prices is None:
+                raise ValueError(
+                    "第三方页面尚未同步本轮调价，且没有可保留的历史 98# 参考价"
+                )
+            price_98 = existing_prices[2]
+            price_type = "92#/95#/柴油为广东省最高零售价；98#暂沿用最近一次广州参考价"
+            reference_status = "第三方来源尚未同步本轮调价，98#暂沿用最近一次参考价"
+            print(
+                f"警告: 官方价格已更新为 {official}，第三方仍为 "
+                f"{reference_comparable}；98# 暂保留 {price_98}",
+                file=sys.stderr,
+            )
 
     prices = [official_92, official_95, price_98, official_diesel]
     validate_prices(prices)
