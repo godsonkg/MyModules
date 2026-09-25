@@ -1,73 +1,74 @@
 # 番茄小说去广告
 
-提供两个 Surge iOS 模块，选一个安装。
+轻量版和增强版选一个。直播流模块是单独的临时测试项。
 
-| 版本 | 用途 | 要求 |
+| 模块 | 当前版本 | 用途 |
 | --- | --- | --- |
-| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 拦截几组广告域名 | Surge iOS 5.8+ |
-| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 增加广告接口、素材及视频路径拦截 | Surge iOS 5.9.1+，开启重写和 MITM |
+| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 2026.09.25-r3 | 拦截几组广告域名，无需 MITM |
+| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r5 | 域名拦截及素材、接口重写，需要 MITM |
+| [直播流临时测试](Fanqie_LiveStream_Test.sgmodule) | 2026.09.25-test1 | 拦截实测中出现的一个共享直播通道，无需 MITM |
 
-## 安装与更新
+## 安装
 
-在 Surge 的“模块”页面从 URL 安装：
+在 Surge“模块”页面从 URL 安装。已经安装的增强版直接更新：
 
-- [轻量版安装地址](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Lite.sgmodule)
-- [增强版安装地址](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Enhanced.sgmodule)
+- [轻量版](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Lite.sgmodule)
+- [增强版](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Enhanced.sgmodule)
+- [直播流临时测试](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_LiveStream_Test.sgmodule)
 
-已安装的模块直接更新即可。增强版当前描述应显示 `2026.09.25-r4`；轻量版仍为 `2026.09.25-r3`。排查效果时，暂时关闭其他番茄去广告模块，只留一个。
+轻量版需要 Surge iOS 5.8+；另外两个模块需要 5.9.1+。使用规则模式，增强版和直播流测试还要打开重写。增强版需要开启 MITM，并安装和信任 Surge 证书。
 
-使用规则模式。增强版还需要开启重写、MITM，并安装和信任 Surge 证书。模块只追加解密域名，不会替你开启开关或安装证书。更新后强制退出番茄小说，再打开测试。
+排查时关闭其他番茄去广告模块，只留增强版。直播流测试可以与增强版一起启用。更新后强制退出番茄，再打开。
 
-## 先确认手机加载了哪一版
+## r5 修复的实际问题
 
-更新增强版后，在 Safari 地址栏输入：
+r4 添加了 `*.snssdk.com` 和 `*.byteimg.com` 两组 MITM 通配符。手机请求详情随后明确显示：
 
-`http://fanqie-check.invalid/?v=r4`
+- `p6-novel.byteimg.com` 命中增强版的 `*.byteimg.com`，随后 MITM 失败。
+- `i-lq.snssdk.com` 命中增强版的 `*.snssdk.com`，随后 MITM 失败。
+- 客户端在 TLS 握手后断开，Surge 提示可能存在证书固定。这不是“拦截成功”的记录。
 
-必须使用 `http://`。正常应显示：
+r5 撤回这两组通配符。snssdk 仅保留原来的 `reading-hl`、`i-hl` 和 `gurd`；其他 MITM 项为 `*.pstatp.com`、`*novelapp.fqnovelvod.com`、`adim.pinduoduo.com`。不再由本模块解密上述两个失败域名。如果别的模块也把它们加入 MITM，仍可能报错，应看请求详情中标明的来源。
 
-> 番茄增强版 2026.09.25-r4 已加载；本机重写生效。这不代表 MITM 已成功，也不代表广告已拦截。
+保留从 FanQieNovel 移植的 16 条重写。撤回部分 MITM 后，相应 HTTPS 路径不会被本模块解密和改写；普通 HTTP 不受这项限制。关闭服务器证书验证不能解决客户端拒绝 Surge 证书的问题。
 
-这是 Surge 在本机返回的文本，不是外部网站，也不上传数据。如果打不开，先核对模块版本、启用状态、重写开关，以及地址是否被改成了 HTTPS。不能单凭打不开就认定模块没加载。
+r5 先修复已发现的连接冲突，尚未确认能消除阅读广告。
 
-这个检查只验证增强版的本机重写。域名规则是否命中，要看“最近请求”里的阻止记录；HTTPS 接口重写是否有效，还取决于 MITM。
+## 直播流临时测试
 
-## r4 改了什么
+手机记录里出现了 `pull-flv-l1.douyincdn.com/stage/stream-…flv` 的持续下载，也出现了把域名放进 URL 路径的 IPv4 地址形式。测试模块覆盖这两种明文 HTTP 地址，不封禁共享 CDN IP。
 
-r3 只补充了 TLS SNI / HTTP Host 扩展匹配，没有补足广告路径。用户反馈阅读插屏仍然出现。
+这条通道也提供正常抖音直播，不能仅凭流地址把它认定为广告专用接口。现有截图包含进入直播间后的画面，尚未确认阅读页预览与进入直播间是否使用相同请求。因此单独提供测试模块，启用后同通道的正常直播也可能无法播放。
 
-r4 按用户提供的 Script Hub 链接，读取其 GitHub 源文件后重新移植。核对的源文件 SHA 为 `9307684c73c474be442e602d5f55d5ba05633518`。修正了原正则中 `byteimg.com`、`snssdk.com` 的点号转义，其余保留原有路径范围。内容如下：
+测试方法：
 
-- 恢复用户提供的 FanQieNovel 源文件中全部 16 条有效重写，转换为 Surge 原生格式，无需再经过 Script Hub。源文件开头三条 `#DOMAIN` 是注释，没有作为有效规则导入。
-- `snssdk.com` 子域名下的 `/api/ad/` 广告接口和源规则中的视频播放路径。
-- `pstatp.com` 下的广告素材、渲染资源和带 `from=ad` 参数的素材路径。
-- `byteimg.com` 下的特定广告图片及广告素材目录。
-- `novelapp.fqnovelvod.com` 视频路径和 `adim.pinduoduo.com` 的 toutiao 路径，以及源文件中的 `track_log` 上报路径。上报拦截本身不代表能去掉广告。
-- 配套 MITM 域名及本机版本检查入口。
+1. 更新增强版至 r5，按需安装并开启直播流临时测试。
+2. 强制退出番茄，再进入阅读页翻页，先不要点击进入直播间。
+3. 看阅读页直播卡片是否仍播放，同时查看 `pull-flv-l1` 请求有无被重写拒绝。
+4. 若视频停了但卡片仍在，只能证明这条素材流被挡住，广告入口还未处理。其他视频广告也不一定使用这条通道。
+5. 测试结束后关闭直播流模块，恢复正常直播。
 
-规则和路径样例已做静态检查。尚未用手机实测确认 r4 能去掉当前版本的阅读插屏，不承诺所有广告都会消失。
+## 本机版本检查
 
-## 影响范围
+在 Safari 输入完整 HTTP 地址：
 
-Surge iOS 的这些规则会作用于整台设备。穿山甲广告、字节系 App 的部分广告和视频，以及主动看广告领奖励的功能都可能受影响。视频规则也可能拦住同接口的正常视频。
+- 增强版：`http://fanqie-check.invalid/?v=r5`，应显示增强版 r5 已加载。
+- 直播测试：`http://fanqie-check.invalid/live-test`，应显示 test1 已加载。
 
-增强版对 `*.snssdk.com`、`*.pstatp.com`、`*.byteimg.com`、`*novelapp.fqnovelvod.com` 和 `adim.pinduoduo.com` 添加解密域名，比 r3 的解密范围更广。源文件有 snssdk 和 byteimg 的 HTTPS 重写，但其 hostname 列表没有完整覆盖这两组域名，r4 一并补齐。其他 App 使用这些地址时也会经过 MITM；若应用不接受 Surge 证书，可能连接失败。遇到图片、视频或正文加载异常，先关闭增强版核对。
+文字由 Surge 在本机返回，不上传数据。检查只证明对应模块的本机重写工作，不证明 MITM 成功或广告已拦截。打不开时核对版本、启用状态、重写开关，以及是否被浏览器改成 HTTPS。
 
-没有整域拒绝 `bytedance.com`、`zijieapi.com`、`pstatp.com` 或 `byteimg.com`，也没有按截图中的共享 CDN IP 加封禁。截图出现 DIRECT，不足以判定该连接是广告。
+## 使用范围
 
-## 仍有广告时
+规则作用于整台设备，可能影响其他 App 的广告、图片、视频和看广告领奖励功能。增强版的剩余 MITM 项也可能遇到应用证书校验；发生异常先关闭模块核对。
 
-记录从打开番茄小说到插屏出现的整段请求。广告可能提前加载，只截出现后几秒容易漏掉下载请求。
+分享诊断记录时，优先提供请求详情里的域名、路径、匹配规则和 MITM 备注，遮住账号、Cookie、Token 和查询参数。仅有 DIRECT 或“已修改”标签不足以判断去广告是否生效。模块不修改会员状态。
 
-优先查看相关连接的详情：目标地址、TLS SNI、完整路径、命中规则、收发流量。模块的拒绝结果通常显示“阻止 / REJECT”，不需要像响应脚本一样显示“已修改”。如果是 HTTP 重写拒绝，也可查看请求详情的重写说明。
+## 来源
 
-分享记录前遮住账号、Cookie、Token 和 URL 查询参数。模块不修改会员状态。
+r4 根据用户提供的 Script Hub 链接，从下面的 FanQieNovel 源文件移植了 16 条有效重写，源文件 SHA 为 `9307684c73c474be442e602d5f55d5ba05633518`。转换时修正了 snssdk.com、byteimg.com 的点号转义。源文件中的直播 .flv 行原本被注释，没有作为有效规则移入增强版。
 
-## 参考
-
-- [用户提供的原模块](https://yfamilys.com/module/fanqie.module)
-- [FanQieNovel 视频及素材规则](https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite)
+- [FanQieNovel 源文件](https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite)
+- [最初参考模块](https://yfamilys.com/module/fanqie.module)
 - [番茄广告过滤规则](https://github.com/changzhaoCZ/fqnovel-adrules)
-- [Surge 域名规则](https://manual.nssurge.com/rules/domain.html)
+- [Surge MITM](https://manual.nssurge.com/http/mitm.html)
 - [Surge URL 重写](https://manual.nssurge.com/http/url-rewrite.html)
-- [Surge Map Local](https://manual.nssurge.com/http/map-local.html)
