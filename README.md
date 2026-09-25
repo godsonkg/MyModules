@@ -1,121 +1,120 @@
 # MyModules
 
-个人 Surge 模块与网络配置工具合集。
+自己用的 Surge 模块、脚本和规则，外加一个检查代理配置的小工具。
 
-## Proxy Health Checker
+| 内容 | 文件 | 用途 |
+| --- | --- | --- |
+| AI 节点监测 | `AI-Check.sgmodule` | 面板：ChatGPT、Claude 实际出口 IP 和类型，Gemini 能不能用 |
+| 节点 IP 质量检测 | `Surge/IPQuality.sgmodule` | 面板：指定节点的 IP 类型、流媒体和 AI 解锁情况 |
+| 广东油价 | `Surge/GD_FuelPrice.sgmodule` | 面板：广东油价，每天自动更新 |
+| 番茄小说去广告 | `Surge/Fanqie/` | 轻量版 / 增强版，见[单独说明](Surge/Fanqie/README.md) |
+| Gemini 分流规则 | `Surge/Gemini.list` | Gemini、AI Studio、NotebookLM 等 Google AI 域名 |
+| YouTube 解锁检测 | `Scripts/unlock_probe.js` | 独立脚本，用法写在文件开头 |
+| 配置体检 | `tools/proxy_health/` | 检查 Surge/Loon 配置，见[使用说明](tools/proxy_health/README.md) |
 
-Surge/Loon 配置的只读健康检查器，支持规则冲突、策略引用、敏感信息、路由回归与双客户端差异检查。
+模块都在 Surge →「模块」→「从 URL 安装」里添加。iOS 上也可以用 `surge:///install-module?url=` 加模块链接一键安装。
 
-- [使用说明](tools/proxy_health/README.md)
-- 检查器不会上传或自动修改真实配置
-- 公开仓库仅包含脱敏样例
-
-## 番茄小说去广告（Surge）
-
-提供[轻量版和增强版](Surge/Fanqie/README.md)。轻量版无需 MITM；增强版多拦截两组广告接口，需要开启 MITM。两个版本只启用一个。
-
-## 广东油价查看（Surge 面板模块）
-
-在 Surge 的面板（Dashboard）上显示广州成品油参考指导价（92# / 95# / 98# / 0# 柴油）。加油站实际售价会因品牌、会员优惠和活动不同而有差异。
-价格数据存放在本仓库的 JSON 文件中，并由 GitHub Actions 定时**自动更新**，你无需手动维护。
-
-> 这是一个开箱即用的模块：直接安装下面的链接即可，不需要自己建仓库或改任何配置。
-
-## 面板效果
+## AI 节点监测
 
 ```
-广东油价
-更新时间：2026-07-13
-92#: 7.20 元/升
-95#: 7.80 元/升
-98#: 9.80 元/升
-0# 柴油: 6.83 元/升
-口径：参考指导价
-来源：广州油价页
-提示：加油站实际售价可能不同
+https://raw.githubusercontent.com/godsonkg/MyModules/main/AI-Check.sgmodule
 ```
 
-## 安装（在 Surge 中添加）
+请求按你现有的规则分流，所以看到的就是 chatgpt.com、claude.ai、gemini.google.com 实际走的节点：
 
-1. 打开 Surge → **Modules（模块）** → **Install from URL（从链接安装）**。
-2. 粘贴下面的模块链接：
+- ChatGPT / Claude：出口 IP、归属、运营商、IP 类型（住宅 / 数据中心 / 代理 / 移动），出口在两家都不支持的地区（如 HK、CN、RU）会标出来
+- Gemini：读网页里的可用标记，显示“可用 / 地区不支持 / 未确认”和地区码
+
+点面板刷新，不会自动跑。
+
+## 节点 IP 质量检测
+
+```
+https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/IPQuality.sgmodule
+```
+
+和上一个的区别是可以指定节点：安装时把 `policy` 填成 Surge 里的节点或策略组名（区分大小写）。检测内容包括出口 IP 和类型，Netflix、YouTube Premium、Disney+，以及 ChatGPT、Claude、Gemini。`mask=true` 会把 IP 打码，方便截图。
+
+“纯净度”是按 ip-api.com 返回的 IP 类型给的粗略分数，只能参考。
+
+## 广东油价
 
 ```
 https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/GD_FuelPrice.sgmodule
 ```
 
-3. 安装并启用后，回到 **Dashboard（面板）** 即可看到「广东油价」。
-
-> 提示：iOS 上也可以直接用 `surge:///install-module?url=` 加上面的链接一键安装。
-
-## 数据从哪里来？
-
-模块里的脚本会拉取本仓库的 JSON 数据文件：
+面板效果：
 
 ```
-https://raw.githubusercontent.com/godsonkg/MyModules/main/data/guangdong_fuel.json
+广东油价
+更新时间：2026-09-24
+92#: 8.63 元/升
+95#: 9.35 元/升
+98#: 11.00 元/升
+0# 柴油: 8.31 元/升
+口径：92#/95#/柴油为广东省最高零售价；98#暂沿用最近一次广州参考价
+来源：广东省发改委最高零售价；98#为广州参考价
+提示：加油站实际售价可能不同
 ```
 
-该 JSON 由仓库内的 **GitHub Actions 工作流每天抓取并校验**。只有价格发生变化时才提交更新，面板默认缓存 1 小时。数据口径是参考指导价，不代表某一家加油站的实时成交价。
-为保证稳定，脚本还内置了两层兜底：**本地缓存**（上次成功的数据）和**离线兜底**（万一网络不通时显示）。
+92#、95#、0# 柴油取自广东省发改委公布的最高零售价，98# 取广州参考价。GitHub Actions 每天北京时间 8:20 抓取、校验，价格变了才提交 `data/guangdong_fuel.json`。
 
-## 自定义
+面板每小时自动刷新一次，用缓存；手动点按会跳过缓存重新拉取。拉取失败时显示上次的缓存，并注明是缓存；从来没拉成功过就只提示失败，不会显示编造的价格。
 
-模块的行为由 `Surge/GD_FuelPrice.sgmodule` 控制，常用可调项：
+可以在模块里改的：
 
-- **刷新间隔**：修改 `[Panel]` 里的 `update-interval`（单位：秒，默认 `3600` = 1 小时）。
-- **缓存时长**：修改 `[Script]` argument 里的 `ttl`（单位：秒）。
-- **展示省份名**：修改 argument 里的 `province=广东`（仅影响面板标题文字）。
-- **样式**：在脚本 `fmt()` 里可调整 `icon`、`icon-color`、标题与字段排版。
+- `update-interval`：自动刷新间隔，秒
+- `ttl`：缓存时长，秒
+- `province`：面板标题里的省份名，只影响显示
 
-## JSON 字段说明
+加油站实际价格会因品牌、会员和活动不同。数据只有广东，换省份要自己准备 JSON。
+
+### JSON 格式
 
 ```json
 {
   "province": "广东",
-  "updated_at": "2026-07-13",
+  "updated_at": "2026-09-24",
   "unit": "元/升",
+  "price_type": "价格口径说明",
   "items": [
-    { "name": "92#", "price": 7.20 },
-    { "name": "95#", "price": 7.80 },
-    { "name": "98#", "price": 9.80 },
-    { "name": "0# 柴油", "price": 6.83 }
+    { "name": "92#", "price": 8.63 },
+    { "name": "95#", "price": 9.35 },
+    { "name": "98#", "price": 11.0 },
+    { "name": "0# 柴油", "price": 8.31 }
   ],
-  "price_type": "参考指导价",
-  "source": "广州油价页（参考指导价；加油站实际价可能不同）"
+  "source": "数据来源说明"
 }
 ```
 
-- `items` 可按需增减条目（例如加入「95# 国VI」等）。
-- `unit` 会拼接在每个价格后面显示。
-- `source` 为空时面板不显示「来源」行。
+`items` 至少 4 项，每个价格要在 4–20 之间，否则脚本当作异常数据丢掉。`price_type`、`source` 为空时面板不显示对应行。
 
-## 目录结构
+## Gemini 分流规则
+
+```
+RULE-SET,https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Gemini.list,你的策略组
+```
+
+域名整理自 v2fly/domain-list-community 的 `google-deepmind` 列表。2026-09-25 之前的版本带了 `googleapis.com` 和 `googleusercontent.com` 整段后缀，会把 YouTube、Google Play、地图等请求也分到 Gemini 策略里，现在去掉了。Google 的其他域名交给你配置里的 Google 规则。
+
+`Surge/Gemini`（无扩展名）是旧文件，内容和 `Gemini.list` 相同，保留是为了不让旧链接失效。
+
+## 目录
 
 ```
 MyModules/
+├─ AI-Check.sgmodule / AI-Check.js   AI 节点监测
 ├─ Surge/
-│  └─ GD_FuelPrice.sgmodule   # Surge 模块（面板 + 脚本定义）
+│  ├─ IPQuality.sgmodule             节点 IP 质量检测
+│  ├─ GD_FuelPrice.sgmodule          广东油价
+│  ├─ Gemini.list                    Gemini 规则（Gemini 为旧文件名）
+│  └─ Fanqie/                        番茄小说去广告
 ├─ Scripts/
-│  ├─ gd_fuel_price.js        # 拉取并格式化油价的面板脚本
-│  └─ update_fuel.py          # 抓取并校验广州参考指导价
-└─ data/
-   └─ guangdong_fuel.json     # 油价数据（由 Actions 自动更新）
+│  ├─ ipquality_surge.js
+│  ├─ gd_fuel_price.js
+│  ├─ unlock_probe.js                YouTube 解锁检测
+│  ├─ update_fuel.py                 油价抓取（Actions 调用）
+│  └─ test_update_fuel.py
+├─ data/guangdong_fuel.json          油价数据
+└─ tools/proxy_health/               配置体检工具
 ```
-
-## 常见问题
-
-**面板不更新 / 一直是旧价格？**
-默认缓存为 1 小时，可在 Surge 面板下拉刷新，或把 `update-interval` / `ttl` 调小。
-若 GitHub Raw 访问受限，可能拉取失败，此时面板会显示缓存或内置示例。
-
-**为什么和某个加油站的价格不一样？**
-面板展示的是城市参考指导价，不是单站成交价。品牌、会员、支付渠道和限时活动都会让实际站价上下浮动。
-
-**面板显示「离线内置」数据？**
-说明脚本没能成功拉到数据（多为网络不通或 Raw 被限制）。网络恢复后刷新面板即可。
-
-**想看别的省份？**
-本模块的数据源只包含广东。换省需要同时替换数据 JSON 并把 `province` 改成对应名称。
-
-祝使用愉快！

@@ -1,15 +1,13 @@
 #!name=番茄小说去广告（增强版）
-#!desc=2026.09.25-r7 · 补充直播广告候选域名；仍需在手机上验证
+#!desc=2026.09.25-r8 · 广告域名拦截，加素材和接口重写，需要开 MITM。对整台设备生效。
 #!system=ios
 
-# 源：https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite
-# 源文件快照：9307684c73c474be442e602d5f55d5ba05633518
-# 需要 Surge iOS 5.9.1+。HTTPS 路径仅在对应连接成功解密时生效。
-# r5 已撤回 *.snssdk.com / *.byteimg.com；r6 再撤回 *novelapp.fqnovelvod.com。
-# 手机记录确认视频 CDN 解密后客户端断开；对应视频路径重写已删除。
-# r7 参考 GitHub 番茄模块补充三条直播入口/素材候选域名规则；可能影响抖音直播。
-# 作用于整台设备，可能影响其他 App 的图片、视频或连接。
-# 本机自检：http://fanqie-check.invalid/?v=r7（必须使用 http）
+# 需要 Surge iOS 5.9.1+，开启重写和 MITM，并信任 Surge 证书。
+# HTTPS 重写只对 MITM 列表里、并且解密成功的连接有效。
+# 重写改自 zqzess/rule_for_quantumultX 的 FanQieNovel.qxrewrite（9307684c）。
+# pangolin-sdk-toutiao.com、pglstatp-toutiao.com 整个域名已在 [Rule] 里拦截，不再单独写重写。
+# 视频 CDN（*.snssdk.com、*.byteimg.com、*novelapp.fqnovelvod.com）解密会被客户端拒绝，不要加回 MITM。
+# 自检：Safari 打开 http://fanqie-check.invalid/?v=r8（必须是 http）
 
 [Rule]
 DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT,extended-matching
@@ -17,31 +15,27 @@ DOMAIN,p6-ad-sign.byteimg.com,REJECT,extended-matching
 DOMAIN,p9-ad-sign.byteimg.com,REJECT,extended-matching
 DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT,extended-matching
 DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
-# 19:31 截图可见 content-open.douyin.com 直连；其余两项来自 2026 年番茄模块。
+# 直播入口和素材候选，参考 zirawell、可莉的番茄模块；会连带影响抖音直播
 DOMAIN,content-open.douyin.com,REJECT,extended-matching
 DOMAIN,webcast-open.douyin.com,REJECT,extended-matching
 DOMAIN,lf-webcast-gr-sourcecdn.bytegecko.com,REJECT,extended-matching
 
 [URL Rewrite]
-^https?://.+\.pangolin-sdk-toutiao\.com/api/ad/union/sdk/(get_ads|stats|settings)/ _ reject
-^https?://.+\.pglstatp-toutiao\.com/.+/toutiao\.mp4 _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(obj|img)/(ad-app-package|ad)/.+ _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(obj|img)/web\.business\.image/.+ _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/obj/ad-pattern/renderer _ reject
-^https?://gurd\.snssdk\.com/src/server/v3/package _ reject
-^https?://.+\.byteimg\.com/tos-cn-i-1yzifmftcy/(.+)-jpeg\.jpeg _ reject
-^https?://.+\.pstatp\.com/obj/mosaic-legacy/.+\?from\=ad _ reject
+^https?://.+\.pstatp\.com/(?:(?:obj|img)/)?(?:ad-app-package|ad)/.+ _ reject
+^https?://.+\.pstatp\.com/(?:obj|img)/web\.business\.image/.+ _ reject
+^https?://.+\.pstatp\.com/obj/ad-pattern/renderer _ reject
+^https?://.+\.pstatp\.com/obj/mosaic-legacy/.+\?from=ad _ reject
 ^https?://.+\.pstatp\.com/bytecom/resource/track_log/src/.+ _ reject
+^https?://gurd\.snssdk\.com/src/server/v3/package _ reject
 ^https?://.+\.snssdk\.com/video/play/1/toutiao/.+/mp4 _ reject
 ^https?://.+\.snssdk\.com/api/ad/.+ _ reject
-^http://.+\.byteimg\.com/ad-app-package _ reject
-^http://.+\.byteimg\.com/web\.business\.image _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(ad-app-package|ad)/.+ _ reject
+^https?://.+\.byteimg\.com/tos-cn-i-1yzifmftcy/(.+)-jpeg\.jpeg _ reject
+^http://.+\.byteimg\.com/(?:ad-app-package|web\.business\.image) _ reject
 ^https?://adim\.pinduoduo\.com/.+/toutiao\?.+ _ reject
 
 [Map Local]
-# 仅检查模块加载及重写，不检查 MITM 或广告命中；响应在本机生成
-^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r7 已加载；本机重写生效。直播域名规则是否命中、广告是否消失仍需在请求记录中验证。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+# 只说明模块已加载、本机重写在工作，不代表 MITM 成功或广告已拦住
+^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r8 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
 
 [MITM]
 hostname = %APPEND% reading-hl.snssdk.com,i-hl.snssdk.com,gurd.snssdk.com,*.pstatp.com,adim.pinduoduo.com

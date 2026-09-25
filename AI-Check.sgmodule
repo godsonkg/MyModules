@@ -1,15 +1,12 @@
 #!name=AI 节点监测
-#!desc=ChatGPT / Claude 检测真实出口 IP 归属与纯净度，Gemini 半严格可用性检测
+#!desc=看 ChatGPT、Claude 实际走的出口 IP、归属和 IP 类型，以及 Gemini 在当前地区能不能用。点面板刷新。
 #!category=Panel
 #!author=godsonkg
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/Color/ChatGPT.png
 #!homepage=https://github.com/godsonkg/MyModules
 
 [Script]
-AI-Check = type=generic,timeout=35,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/AI-Check.js
+AI-Check = type=generic,timeout=30,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/AI-Check.js
 
 [Panel]
-AI-Check = script-name=AI-Check,title="AI 节点监测",update-interval=0
-
-[MITM]
-hostname = %APPEND% ip-api.com
+AI-Check = script-name=AI-Check,title="AI 节点监测",content="点按刷新"
