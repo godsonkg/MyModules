@@ -1,13 +1,14 @@
 #!name=番茄小说去广告（增强版）
-#!desc=拦截广告服务域名和部分广告接口，需开启 MITM
+#!desc=2026.09.25-r3 · 拦截广告服务域名和部分广告接口，需开启 MITM
 #!system=ios
 
 [Rule]
-DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT
-DOMAIN,p6-ad-sign.byteimg.com,REJECT
-DOMAIN,p9-ad-sign.byteimg.com,REJECT
-DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT
-DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT
+# Surge iOS 5.8+：同时匹配请求域名、TLS SNI 和 HTTP Host
+DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT,extended-matching
+DOMAIN,p6-ad-sign.byteimg.com,REJECT,extended-matching
+DOMAIN,p9-ad-sign.byteimg.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
 
 [URL Rewrite]
 ^https?://(reading-hl|i-hl)\.snssdk\.com/api/ad/ _ reject
