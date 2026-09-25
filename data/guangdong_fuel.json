@@ -1,17 +1,17 @@
 {
   "province": "广东",
   "city": "广州",
-  "updated_at": "2026-09-11",
+  "updated_at": "2026-09-24",
   "unit": "元/升",
   "price_type": "92#/95#/柴油为广东省最高零售价；98#暂沿用最近一次广州参考价",
   "items": [
     {
       "name": "92#",
-      "price": 8.31
+      "price": 8.63
     },
     {
       "name": "95#",
-      "price": 9.0
+      "price": 9.35
     },
     {
       "name": "98#",
@@ -19,11 +19,11 @@
     },
     {
       "name": "0# 柴油",
-      "price": 7.98
+      "price": 8.31
     }
   ],
   "source": "广东省发改委最高零售价；98#为广州参考价",
-  "source_url": "https://drc.gd.gov.cn/spjg/content/post_4954696.html",
+  "source_url": "https://drc.gd.gov.cn/spjg/content/post_4960319.html",
   "reference_source_url": "https://oil.qqday.com/city/440100.htm",
   "reference_updated_at": "2026-09-13",
   "reference_status": "第三方参考来源本次不可用，98#暂沿用最近一次参考价"
