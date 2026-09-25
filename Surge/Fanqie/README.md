@@ -1,41 +1,73 @@
 # 番茄小说去广告
 
-提供两个 Surge iOS 模块，**选一个安装即可**。需要 Surge iOS 5.8 或更新版本。
+提供两个 Surge iOS 模块，选一个安装。
 
-| 版本 | 规则 | 需要 MITM |
+| 版本 | 用途 | 要求 |
 | --- | --- | --- |
-| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 拦截常见广告域名 | 不需要 |
-| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 拦截穿山甲广告服务及素材域名，再处理部分广告接口 | 需要 |
+| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 拦截几组广告域名 | Surge iOS 5.8+ |
+| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 增加广告接口、素材及视频路径拦截 | Surge iOS 5.9.1+，开启重写和 MITM |
 
-先试轻量版。如果章末广告还在，可以关闭轻量版，换增强版试试。两个版本不要同时启用。
+## 安装与更新
 
-## 安装
+在 Surge 的“模块”页面从 URL 安装：
 
-在 Surge 的“模块”页面选择“从 URL 安装”，粘贴对应地址：
+- [轻量版安装地址](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Lite.sgmodule)
+- [增强版安装地址](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Enhanced.sgmodule)
 
-- 轻量版：`https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Lite.sgmodule`
-- 增强版：`https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Enhanced.sgmodule`
+已安装的模块直接更新即可。增强版当前描述应显示 `2026.09.25-r4`；轻量版仍为 `2026.09.25-r3`。排查效果时，暂时关闭其他番茄去广告模块，只留一个。
 
-增强版还需要在 Surge 中开启 MITM，生成并信任 Surge 证书。模块只给 `reading-hl.snssdk.com`、`i-hl.snssdk.com`、`gurd.snssdk.com` 添加解密规则。如果开启后小说内容加载异常，关掉增强版，改用轻量版。
+使用规则模式。增强版还需要开启重写、MITM，并安装和信任 Surge 证书。模块只追加解密域名，不会替你开启开关或安装证书。更新后强制退出番茄小说，再打开测试。
 
-## 2026.09.25-r3 更新
+## 先确认手机加载了哪一版
 
-两个版本的域名规则都加上了 `extended-matching`。应用直接连接 IP 时，Surge 也会用 TLS SNI 和 HTTP Host 中的域名匹配规则。此前的规则没有启用这项匹配，存在漏拦的可能。
+更新增强版后，在 Safari 地址栏输入：
 
-这次修正了匹配方式，尚未在手机上验证阅读插屏广告是否消失。已有截图中的资源 CDN 和日志连接不足以确定广告来源，因此这次没有新增屏蔽域名。
+`http://fanqie-check.invalid/?v=r4`
 
-更新后，模块描述应显示 `2026.09.25-r3`，每条域名规则末尾应有 `extended-matching`。在 Surge 中更新已安装的模块，再强制退出并重开番茄小说。域名拦截需要使用“规则模式”；全局直连或全局代理模式不会按这份域名规则处理。
+必须使用 `http://`。正常应显示：
 
-## 使用说明
+> 番茄增强版 2026.09.25-r4 已加载；本机重写生效。这不代表 MITM 已成功，也不代表广告已拦截。
 
-模块只处理网络请求，不改会员状态。广告是否能拦住，取决于番茄小说当前版本实际使用的接口；开屏、正文和章末广告不一定全部消失。主动观看广告领取奖励的功能也可能受影响。
+这是 Surge 在本机返回的文本，不是外部网站，也不上传数据。如果打不开，先核对模块版本、启用状态、重写开关，以及地址是否被改成了 HTTPS。不能单凭打不开就认定模块没加载。
 
-Surge iOS 的这类规则不能只限定番茄小说。增强版会拒绝整台设备对 `pangolin-sdk-toutiao.com` 和 `pglstatp-toutiao.com` 及其子域名的请求；其他使用同一广告服务的 App 也可能受影响。遇到异常时，先关闭模块重试。增强版如果没有完成 MITM 证书设置，URL 重写部分不会生效。
+这个检查只验证增强版的本机重写。域名规则是否命中，要看“最近请求”里的阻止记录；HTTPS 接口重写是否有效，还取决于 MITM。
 
-如果广告仍在，查看“最近请求”中从打开番茄小说到广告出现的整段记录，包含广告出现前的请求。视频可能提前下载，仅看弹出广告后几秒的记录容易漏掉来源。记下域名、路径、时间和匹配结果；点开显示“IP（域名）”的连接，还可查看目标地址、SNI 和命中规则。
+## r4 改了什么
 
-分享截图前请遮住账号、Cookie、Token 和 URL 查询参数。出现 DIRECT 只说明该连接直连，不能单凭它认定模块未启用或该域名就是广告。资源 CDN 和日志上报连接也不能直接当作广告投放接口。若仍未找到匹配请求，需要继续查接口、正文响应或本地缓存。
+r3 只补充了 TLS SNI / HTTP Host 扩展匹配，没有补足广告路径。用户反馈阅读插屏仍然出现。
 
-规则参考：[番茄广告过滤规则](https://github.com/changzhaoCZ/fqnovel-adrules)、[公开的番茄模块](https://yfamilys.com/module/fanqie.module)。本仓库保留了广告相关的有限规则，没有加入整域屏蔽 `bytedance.com` 或强制 `byteimg.com` 直连的规则。
+r4 按用户提供的 Script Hub 链接，读取其 GitHub 源文件后重新移植。核对的源文件 SHA 为 `9307684c73c474be442e602d5f55d5ba05633518`。修正了原正则中 `byteimg.com`、`snssdk.com` 的点号转义，其余保留原有路径范围。内容如下：
 
-匹配参数说明：[Surge 域名规则](https://manual.nssurge.com/rules/domain.html)、[规则模式说明](https://manual.nssurge.com/rules/overview.html)。
+- 恢复用户提供的 FanQieNovel 源文件中全部 16 条有效重写，转换为 Surge 原生格式，无需再经过 Script Hub。源文件开头三条 `#DOMAIN` 是注释，没有作为有效规则导入。
+- `snssdk.com` 子域名下的 `/api/ad/` 广告接口和源规则中的视频播放路径。
+- `pstatp.com` 下的广告素材、渲染资源和带 `from=ad` 参数的素材路径。
+- `byteimg.com` 下的特定广告图片及广告素材目录。
+- `novelapp.fqnovelvod.com` 视频路径和 `adim.pinduoduo.com` 的 toutiao 路径，以及源文件中的 `track_log` 上报路径。上报拦截本身不代表能去掉广告。
+- 配套 MITM 域名及本机版本检查入口。
+
+规则和路径样例已做静态检查。尚未用手机实测确认 r4 能去掉当前版本的阅读插屏，不承诺所有广告都会消失。
+
+## 影响范围
+
+Surge iOS 的这些规则会作用于整台设备。穿山甲广告、字节系 App 的部分广告和视频，以及主动看广告领奖励的功能都可能受影响。视频规则也可能拦住同接口的正常视频。
+
+增强版对 `*.snssdk.com`、`*.pstatp.com`、`*.byteimg.com`、`*novelapp.fqnovelvod.com` 和 `adim.pinduoduo.com` 添加解密域名，比 r3 的解密范围更广。源文件有 snssdk 和 byteimg 的 HTTPS 重写，但其 hostname 列表没有完整覆盖这两组域名，r4 一并补齐。其他 App 使用这些地址时也会经过 MITM；若应用不接受 Surge 证书，可能连接失败。遇到图片、视频或正文加载异常，先关闭增强版核对。
+
+没有整域拒绝 `bytedance.com`、`zijieapi.com`、`pstatp.com` 或 `byteimg.com`，也没有按截图中的共享 CDN IP 加封禁。截图出现 DIRECT，不足以判定该连接是广告。
+
+## 仍有广告时
+
+记录从打开番茄小说到插屏出现的整段请求。广告可能提前加载，只截出现后几秒容易漏掉下载请求。
+
+优先查看相关连接的详情：目标地址、TLS SNI、完整路径、命中规则、收发流量。模块的拒绝结果通常显示“阻止 / REJECT”，不需要像响应脚本一样显示“已修改”。如果是 HTTP 重写拒绝，也可查看请求详情的重写说明。
+
+分享记录前遮住账号、Cookie、Token 和 URL 查询参数。模块不修改会员状态。
+
+## 参考
+
+- [用户提供的原模块](https://yfamilys.com/module/fanqie.module)
+- [FanQieNovel 视频及素材规则](https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite)
+- [番茄广告过滤规则](https://github.com/changzhaoCZ/fqnovel-adrules)
+- [Surge 域名规则](https://manual.nssurge.com/rules/domain.html)
+- [Surge URL 重写](https://manual.nssurge.com/http/url-rewrite.html)
+- [Surge Map Local](https://manual.nssurge.com/http/map-local.html)
