@@ -1,13 +1,14 @@
 #!name=番茄小说去广告（增强版）
-#!desc=2026.09.25-r5 · 收窄解密范围，修复已发现的 MITM 冲突；需开启重写和 MITM
+#!desc=2026.09.25-r6 · 撤回视频 CDN 解密，处理连续 TLS 失败；阅读广告尚未解决
 #!system=ios
 
 # 源：https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite
 # 源文件快照：9307684c73c474be442e602d5f55d5ba05633518
-# 需要 Surge iOS 5.9.1+。保留源重写；HTTPS 路径仅在对应连接成功解密时生效。
-# r5 撤回 *.snssdk.com / *.byteimg.com，避免本模块解密已出现握手失败的 i-lq 和 p6-novel。
+# 需要 Surge iOS 5.9.1+。HTTPS 路径仅在对应连接成功解密时生效。
+# r5 已撤回 *.snssdk.com / *.byteimg.com；r6 再撤回 *novelapp.fqnovelvod.com。
+# 手机记录确认视频 CDN 解密后客户端断开；删除对应视频路径重写，不封禁整个视频 CDN。
 # 作用于整台设备，可能影响其他 App 的图片、视频或连接。
-# 本机自检：http://fanqie-check.invalid/?v=r5（必须使用 http）
+# 本机自检：http://fanqie-check.invalid/?v=r6（必须使用 http）
 
 [Rule]
 DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT,extended-matching
@@ -32,11 +33,10 @@ DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
 ^http://.+\.byteimg\.com/web\.business\.image _ reject
 ^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(ad-app-package|ad)/.+ _ reject
 ^https?://adim\.pinduoduo\.com/.+/toutiao\?.+ _ reject
-^https?://.+novelapp\.fqnovelvod\.com/.+/video/.+ _ reject
 
 [Map Local]
 # 仅检查模块加载及重写，不检查 MITM 或广告命中；响应在本机生成
-^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r5 已加载；本机重写生效。这不代表 MITM 已成功，也不代表广告已拦截。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r6 已加载；本机重写生效。这不代表 MITM 已成功，也不代表广告已拦截。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
 
 [MITM]
-hostname = %APPEND% reading-hl.snssdk.com,i-hl.snssdk.com,gurd.snssdk.com,*.pstatp.com,*novelapp.fqnovelvod.com,adim.pinduoduo.com
+hostname = %APPEND% reading-hl.snssdk.com,i-hl.snssdk.com,gurd.snssdk.com,*.pstatp.com,adim.pinduoduo.com
