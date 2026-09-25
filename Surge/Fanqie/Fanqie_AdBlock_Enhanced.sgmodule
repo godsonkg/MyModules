@@ -1,0 +1,16 @@
+#!name=番茄小说去广告（增强版）
+#!desc=拦截广告域名和部分广告接口，需开启 MITM
+#!system=ios
+
+[Rule]
+DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT
+DOMAIN,p6-ad-sign.byteimg.com,REJECT
+DOMAIN,p9-ad-sign.byteimg.com,REJECT
+DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT
+
+[URL Rewrite]
+^https?://(reading-hl|i-hl)\.snssdk\.com/api/ad/ _ reject
+^https?://gurd\.snssdk\.com/src/server/v3/package($|[/?]) _ reject
+
+[MITM]
+hostname = %APPEND% reading-hl.snssdk.com,i-hl.snssdk.com,gurd.snssdk.com
