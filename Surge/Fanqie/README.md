@@ -1,91 +1,71 @@
 # 番茄小说去广告
 
-轻量版和增强版选一个。直播流模块是单独的临时测试项。
+轻量版和增强版选一个；增强版已包含轻量版全部规则。直播流模块是单独的临时测试项。
 
 | 模块 | 当前版本 | 用途 |
 | --- | --- | --- |
-| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 2026.09.25-r3 | 拦截几组广告域名，无需 MITM |
-| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r7 | 域名拦截及素材、接口重写，需要 MITM |
+| [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 2026.09.25-r4 | 只拦广告 SDK 与素材域名，无需 MITM，基本不影响其他 App |
+| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r8 | 再拦直播卡片、广告模板、字节 SDK 与上报域名，外加少量 MITM 重写 |
 | [直播流临时测试](Fanqie_LiveStream_Test.sgmodule) | 2026.09.25-test1 | 拦截实测中出现的一个共享直播通道，无需 MITM |
 
 ## 安装
 
-在 Surge“模块”页面从 URL 安装。已经安装的增强版直接更新：
+在 Surge“模块”页面从 URL 安装；已安装的直接点更新：
 
 - [轻量版](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Lite.sgmodule)
 - [增强版](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_AdBlock_Enhanced.sgmodule)
 - [直播流临时测试](https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Fanqie/Fanqie_LiveStream_Test.sgmodule)
 
-轻量版需要 Surge iOS 5.8+；另外两个模块需要 5.9.1+。使用规则模式，增强版和直播流测试还要打开重写。增强版需要开启 MITM，并安装和信任 Surge 证书。
+轻量版需要 Surge iOS 5.8+，另外两个需要 5.9.1+。使用规则模式并打开重写；增强版还要开启 MITM，并安装、信任 Surge 证书。
 
-如果正在出现大量 `MitM Failed`，先关闭增强版并强制退出番茄。更新后确认模块说明为 r7。排查时关闭其他番茄去广告模块和直播流临时测试，只保留更新后的增强版。
+更新后**强制退出番茄再打开**。App 会缓存广告配置和已下载的广告模板，不重启、甚至不清缓存（我的 → 设置 → 清除缓存）的情况下，旧广告可能还会出现一段时间。
 
-## r7 试验的规则
+## r8 改了什么
 
-之前的 15 条路径重写多数要先解密 HTTPS；手机截图已有视频域名解密失败，靠继续增加 MITM 项容易重演握手错误。研究以下 GitHub 番茄模块后，r7 只增加三条明确域名拦截：
+r7 及以前只拦 8 个域名，主要靠 MITM 路径重写；而手机记录显示番茄的视频、SDK 域名多数拒绝 Surge 证书，重写实际大部分没机会生效。r8 改为以**无需解密的域名拦截**为主体：
 
-| 域名 | 依据 | 可能影响 |
+1. **补齐域名清单**。参照目前维护最新的 [kelee 模块](https://github.com/Masamisuki/Tool/blob/main/iKeLee/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4%E5%8E%BB%E5%B9%BF%E5%91%8A.sgmodule)（2026-06-01，纯域名规则、不用 MITM），并与 [zirawell](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/F/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4/fanqie.sgmodule)、[zqzess](https://github.com/zqzess/rule_for_quantumultX/blob/master/Loon/Plugin/FanQieNovel.plugin)、[honue](https://github.com/honue/rules/blob/master/Loon/plugin/FanQieNovel.plugin) 交叉核对，增强版域名规则从 8 条增至 32 条。
+2. **拦截字节 HTTPDNS `dig.bdurl.net`**。字节系 App 会通过自家 HTTPDNS 取 IP 后直接连 IP，绕开基于域名的判断。拦截后 App 回退到系统 DNS，其余规则更容易命中。
+3. **整域拦截穿山甲**。`pangolin-sdk-toutiao.com`、`pglstatp-toutiao.com` 整个后缀都是广告联盟，不再依赖解密后的路径匹配；轻量版也从单个 `api-access` 子域扩展到整个后缀。
+4. **通配 ad-sign / webcast-sign 图片域名**，覆盖 p3、p6、p9、p11 等编号。
+5. 路径重写并入 honue 的 `ad-site-adstyle-public` 和 zirawell 的 `gurd …/v\d/package`，删除已被整域拦截覆盖的两条。MITM 列表与 r7 相同，没有新增解密域名。
+
+### 增强版的域名分组
+
+| 分组 | 域名 | 可能影响 |
 | --- | --- | --- |
-| `content-open.douyin.com` | 手机上 19:31 阅读广告期间仍有该域名直连；[zirawell 模块](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/F/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4/fanqie.sgmodule) 有相同拦截 | 抖音开放平台及直播跳转 |
-| `webcast-open.douyin.com` | zirawell 与[可莉模块](https://github.com/Masamisuki/Tool/blob/main/iKeLee/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4%E5%8E%BB%E5%B9%BF%E5%91%8A.sgmodule) 均有 | 抖音直播功能 |
-| `lf-webcast-gr-sourcecdn.bytegecko.com` | 上述两个模块均有 | 共享的直播素材下载 |
+| 广告接口与素材 | `ads*-normal*.zijieapi.com`、`p*-ad-sign.byteimg.com`、`*.pangolin-sdk-toutiao.com`、`*.pglstatp-toutiao.com`、`zlink.ugsdk.cn` | 其他 App 的穿山甲广告（包括“看广告领奖励”） |
+| HTTPDNS | `dig.bdurl.net` | 字节系 App 改用系统 DNS，一般无感 |
+| 直播卡片 | `content-open.douyin.com`、`webcast-open.douyin.com`、`p*-webcast-sign.douyinpic.com`、`lf-webcast-gr-sourcecdn.bytegecko.com` | 抖音直播封面、开放平台跳转 |
+| 模板与实验配置 | `lf-normal-gr-sourcecdn.bytegecko.com`、`gecko3/5.zijieapi.com`、`abtest3-misc.zijieapi.com`、`p3-developer.bytemaimg.com` | 字节系 App 的动态页面更新 |
+| 字节 SDK | `i`、`is`、`is-lq`、`vas`、`effect`、`security`.snssdk.com；`ma`、`minigame3/5-normal`、`mssdk`、`timon`、`vcs`、`feedback-c`.zijieapi.com | 小程序、小游戏、拍摄特效；风控 SDK 被拦可能偶发要求重新验证 |
+| 番茄上报 | `*-applog.fqnovel.com`、`mon*-misc*.fqnovel.com`、`mon.toutiaocloud.com/.net` | 仅番茄与字节监控 |
 
-这三条是**候选规则**，GitHub 收录和时间接近广告只能说明值得测试，不能证明是当前视频插页的起因。Surge iOS 不能用进程规则只限制番茄，因此规则作用于整台设备。遇到其他 App 的直播故障或连续重试，关闭增强版即可撤销这批规则。
+Surge iOS 不能按 App 限定规则，以上规则作用于整台设备。经常用抖音、今日头条的话先用轻量版；轻量版挡不住再换增强版。
 
-验证方式：更新到 r7，强制退出番茄，重现一次阅读页广告，在 Surge 最近请求中搜索 `content-open.douyin.com`、`webcast-open.douyin.com`、`lf-webcast-gr-sourcecdn.bytegecko.com`。记录是否显示命中本模块的 REJECT，及广告画面是否依然出现。如果三条均未出现，说明这批域名与此次插页没有可见关联；如果命中而广告仍显示，就要找返回广告配置的接口，不能继续靠封素材 CDN 猜测。
+## 验证与排查
 
-对照资料：[zqzess Surge 规则](https://github.com/zqzess/rule_for_quantumultX/blob/master/Surge/Module/FanQieNovel.sgmodule)、[zirawell 模块](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/F/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4/fanqie.sgmodule)、[可莉模块](https://github.com/Masamisuki/Tool/blob/main/iKeLee/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4%E5%8E%BB%E5%B9%BF%E5%91%8A.sgmodule)。这些规则未提供对你当前版本的效果证明。
+1. Safari 打开本机自检地址（必须 `http://`）：轻量版 `http://fanqie-check.invalid/lite`，增强版 `http://fanqie-check.invalid/?v=r8`。显示对应版本才说明已更新到位；这只证明模块已加载，不代表广告已拦截。
+2. 关闭其他番茄去广告模块，只保留一个本仓库版本，强制退出番茄后阅读、翻页十几页。
+3. 广告仍出现时，在 Surge 最近请求里筛选出现广告那一刻的请求，记下域名、路径、匹配规则和备注（遮住 Cookie、Token、查询参数），据此再补规则。
+4. 番茄某项功能坏了（福利页空白、登录反复验证、听书异常），先换回轻量版确认是否由增强版引起，再把出问题时被 REJECT 的域名反馈回来，逐条放行。
+5. 出现大量 `MitM Failed` 时，检查是否有其他模块或主配置把 `*.snssdk.com`、`*.byteimg.com`、`*.fqnovelvod.com` 加进 MITM；这些域名会拒绝 Surge 证书。
 
-## r6 修复了什么
-
-手机请求详情明确记录：`v11-novelapp.fqnovelvod.com` 和 `v95-sz-novelapp.fqnovelvod.com` 命中增强版的 `*novelapp.fqnovelvod.com` 后，客户端在 TLS 握手后断开。Surge 提示可能存在证书固定。这是连接失败，不是成功去广告。
-
-r5 只撤回了 `*.snssdk.com` 和 `*.byteimg.com`，漏掉了这组视频域名，修复不完整。r6 做了两项调整：
-
-- 从 MITM 列表删除 `*novelapp.fqnovelvod.com`。
-- 删除对应的视频路径重写，不改成整个视频 CDN 或 IP 封禁。
-
-当前 MITM 仅保留 `reading-hl.snssdk.com`、`i-hl.snssdk.com`、`gurd.snssdk.com`、`*.pstatp.com`、`adim.pinduoduo.com`。如果其他模块或主配置仍要求解密视频域名，连接仍可能失败，以请求详情标明的来源为准。
-
-其余 15 条重写保留；对应 HTTPS 连接未成功解密时，路径规则无法生效。关闭服务器证书验证也不能解决客户端拒绝 Surge 证书的问题。
-
-这次更新撤回已确认引发失败的配置。已检查规则变化和仓库文件，尚未在手机上验证恢复情况，阅读页视频广告仍未解决。不要把错误数量减少当成去广告成功。
+仍可能漏掉的情况：广告混在番茄自家接口（如 `reading-hl.snssdk.com` 的阅读数据）中下发，或通过 QUIC、纯 IP 连接。前者需要解密后改写响应，番茄对这些主域名有证书固定，目前没有可靠做法。
 
 ## 直播流临时测试
 
-手机记录里出现了 `pull-flv-l1.douyincdn.com/stage/stream-…flv` 的持续下载，也出现了把域名放进 URL 路径的 IPv4 地址形式。测试模块覆盖这两种明文 HTTP 地址，不封禁共享 CDN IP。
+手机记录里出现了 `pull-flv-l1.douyincdn.com/stage/stream-…flv` 的持续下载，以及把域名放进路径的 IPv4 地址形式。测试模块覆盖这两种明文 HTTP 地址，不封禁 CDN IP。该通道也服务正常抖音直播，启用后同通道直播可能无法播放，测试完请关闭。
 
-这条通道也提供正常抖音直播，不能仅凭流地址把它认定为广告专用接口。现有截图包含进入直播间后的画面，尚未确认阅读页预览与进入直播间是否使用相同请求。因此单独提供测试模块，启用后同通道的正常直播也可能无法播放。
+1. 先确认增强版 r8 工作正常，再开启本模块。
+2. 强制退出番茄，在阅读页翻页，不点进直播间。
+3. 看直播卡片是否仍播放，以及 `pull-flv-l1` 请求是否被重写拒绝。自检地址：`http://fanqie-check.invalid/live-test`。
 
-测试方法：
+## 历史
 
-1. 先确认更新至 r7 后连接恢复正常，再按需安装并开启直播流临时测试。
-2. 强制退出番茄，再进入阅读页翻页，先不要点击进入直播间。
-3. 看阅读页直播卡片是否仍播放，同时查看 `pull-flv-l1` 请求有无被重写拒绝。
-4. 若视频停了但卡片仍在，只能证明这条素材流被挡住，广告入口还未处理。其他视频广告也不一定使用这条通道。
-5. 测试结束后关闭直播流模块，恢复正常直播。
+- r8：以域名拦截为主体，域名规则增至 32 条，新增 HTTPDNS 拦截。
+- r7：试加三条直播候选域名。
+- r5–r6：撤回 `*.snssdk.com`、`*.byteimg.com`、`*novelapp.fqnovelvod.com` 的 MITM；手机记录确认这些域名在解密后客户端断开连接。
+- r4：从 [zqzess FanQieNovel](https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite)（SHA `9307684c`）移植路径重写。
 
-## 本机版本检查
-
-在 Safari 输入完整 HTTP 地址：
-
-- 增强版：`http://fanqie-check.invalid/?v=r7`，应显示增强版 r7 已加载。
-- 直播测试：`http://fanqie-check.invalid/live-test`，应显示 test1 已加载。
-
-文字由 Surge 在本机返回，不上传数据。检查只证明对应模块的本机重写工作，不证明 MITM 成功或广告已拦截。打不开时核对版本、启用状态、重写开关，以及是否被浏览器改成 HTTPS。
-
-## 使用范围
-
-规则作用于整台设备，可能影响其他 App 的广告、图片、视频和看广告领奖励功能。增强版的剩余 MITM 项也可能遇到应用证书校验；发生异常先关闭模块核对。
-
-分享诊断记录时，优先提供请求详情里的域名、路径、匹配规则和 MITM 备注，遮住账号、Cookie、Token 和查询参数。仅有 DIRECT 或“已修改”标签不足以判断去广告是否生效。模块不修改会员状态。
-
-## 来源
-
-r4 根据用户提供的 Script Hub 链接，从下面的 FanQieNovel 源文件移植了 16 条有效重写，源文件 SHA 为 `9307684c73c474be442e602d5f55d5ba05633518`。转换时修正了 snssdk.com、byteimg.com 的点号转义。源文件中的直播 .flv 行原本被注释，没有作为有效规则移入增强版。
-
-- [FanQieNovel 源文件](https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite)
-- [最初参考模块](https://yfamilys.com/module/fanqie.module)
-- [番茄广告过滤规则](https://github.com/changzhaoCZ/fqnovel-adrules)
-- [Surge MITM](https://manual.nssurge.com/http/mitm.html)
-- [Surge URL 重写](https://manual.nssurge.com/http/url-rewrite.html)
+参考：[Surge 规则](https://manual.nssurge.com/rule/domain-based.html)、[Surge MITM](https://manual.nssurge.com/http/mitm.html)、[Surge URL 重写](https://manual.nssurge.com/http/url-rewrite.html)。

@@ -1,47 +1,76 @@
 #!name=番茄小说去广告（增强版）
-#!desc=2026.09.25-r7 · 补充直播广告候选域名；仍需在手机上验证
+#!desc=2026.09.25-r8 · 广告/直播/SDK/上报域名拦截 + 素材重写；影响抖音等字节系 App
 #!system=ios
 
-# 源：https://github.com/zqzess/rule_for_quantumultX/blob/master/QuantumultX/rewrite/FanQieNovel.qxrewrite
-# 源文件快照：9307684c73c474be442e602d5f55d5ba05633518
-# 需要 Surge iOS 5.9.1+。HTTPS 路径仅在对应连接成功解密时生效。
-# r5 已撤回 *.snssdk.com / *.byteimg.com；r6 再撤回 *novelapp.fqnovelvod.com。
-# 手机记录确认视频 CDN 解密后客户端断开；对应视频路径重写已删除。
-# r7 参考 GitHub 番茄模块补充三条直播入口/素材候选域名规则；可能影响抖音直播。
-# 作用于整台设备，可能影响其他 App 的图片、视频或连接。
-# 本机自检：http://fanqie-check.invalid/?v=r7（必须使用 http）
+# 需要 Surge iOS 5.9.1+。与轻量版二选一，已包含轻量版全部规则。
+# 域名规则无需 MITM，是本模块的主体；HTTPS 路径重写仅在对应连接成功解密时生效。
+# 域名清单对照 kelee（2026-06-01）、zirawell（2026-04-15）、zqzess/honue 番茄模块。
+# 规则作用于整台设备：抖音、今日头条等字节系 App 的直播、小游戏、特效可能受影响。
+# MITM 不含视频 CDN、*.snssdk.com、*.byteimg.com（r5/r6 实测客户端拒绝证书）。
+# 本机自检：http://fanqie-check.invalid/?v=r8（必须使用 http）
 
 [Rule]
+# —— 广告接口与素材（同轻量版）——
 DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT,extended-matching
-DOMAIN,p6-ad-sign.byteimg.com,REJECT,extended-matching
-DOMAIN,p9-ad-sign.byteimg.com,REJECT,extended-matching
+DOMAIN-WILDCARD,p*-ad-sign.byteimg.com,REJECT,extended-matching
 DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT,extended-matching
 DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
-# 19:31 截图可见 content-open.douyin.com 直连；其余两项来自 2026 年番茄模块。
+DOMAIN,zlink.ugsdk.cn,REJECT,extended-matching
+DOMAIN,dig.bdurl.net,REJECT,extended-matching
+
+# —— 阅读页直播卡片 ——
 DOMAIN,content-open.douyin.com,REJECT,extended-matching
 DOMAIN,webcast-open.douyin.com,REJECT,extended-matching
+DOMAIN-WILDCARD,p*-webcast-sign.douyinpic.com,REJECT,extended-matching
 DOMAIN,lf-webcast-gr-sourcecdn.bytegecko.com,REJECT,extended-matching
 
+# —— 广告模板、实验配置与动态资源下发 ——
+DOMAIN,lf-normal-gr-sourcecdn.bytegecko.com,REJECT,extended-matching
+DOMAIN,gecko3.zijieapi.com,REJECT,extended-matching
+DOMAIN,gecko5.zijieapi.com,REJECT,extended-matching
+DOMAIN,abtest3-misc.zijieapi.com,REJECT,extended-matching
+DOMAIN,p3-developer.bytemaimg.com,REJECT,extended-matching
+
+# —— 字节 SDK（福利、小游戏、特效、风控）——
+DOMAIN,i.snssdk.com,REJECT,extended-matching
+DOMAIN,is.snssdk.com,REJECT,extended-matching
+DOMAIN,is-lq.snssdk.com,REJECT,extended-matching
+DOMAIN,vas.snssdk.com,REJECT,extended-matching
+DOMAIN,effect.snssdk.com,REJECT,extended-matching
+DOMAIN,security.snssdk.com,REJECT,extended-matching
+DOMAIN,ma.zijieapi.com,REJECT,extended-matching
+DOMAIN,minigame3-normal.zijieapi.com,REJECT,extended-matching
+DOMAIN,minigame5-normal.zijieapi.com,REJECT,extended-matching
+DOMAIN,mssdk.zijieapi.com,REJECT,extended-matching
+DOMAIN,timon.zijieapi.com,REJECT,extended-matching
+DOMAIN,vcs.zijieapi.com,REJECT,extended-matching
+DOMAIN,feedback-c.zijieapi.com,REJECT,extended-matching
+
+# —— 番茄日志与性能上报 ——
+DOMAIN-WILDCARD,*-applog.fqnovel.com,REJECT,extended-matching
+DOMAIN-WILDCARD,mon*-misc*.fqnovel.com,REJECT,extended-matching
+DOMAIN,mon.toutiaocloud.com,REJECT,extended-matching
+DOMAIN,mon.toutiaocloud.net,REJECT,extended-matching
+
 [URL Rewrite]
-^https?://.+\.pangolin-sdk-toutiao\.com/api/ad/union/sdk/(get_ads|stats|settings)/ _ reject
-^https?://.+\.pglstatp-toutiao\.com/.+/toutiao\.mp4 _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(obj|img)/(ad-app-package|ad)/.+ _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(obj|img)/web\.business\.image/.+ _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/obj/ad-pattern/renderer _ reject
-^https?://gurd\.snssdk\.com/src/server/v3/package _ reject
-^https?://.+\.byteimg\.com/tos-cn-i-1yzifmftcy/(.+)-jpeg\.jpeg _ reject
+# 源：zqzess FanQieNovel（SHA 9307684c）；pangolin/pglstatp 已整域拦截，对应重写删除
+^https?://.+\.pstatp\.com/(obj|img)/(ad-app-package|ad|ad-site-adstyle-public)/.+ _ reject
+^https?://.+\.pstatp\.com/(obj|img)/web\.business\.image/.+ _ reject
+^https?://.+\.pstatp\.com/obj/ad-pattern/renderer _ reject
+^https?://.+\.pstatp\.com/(ad-app-package|ad)/.+ _ reject
 ^https?://.+\.pstatp\.com/obj/mosaic-legacy/.+\?from\=ad _ reject
 ^https?://.+\.pstatp\.com/bytecom/resource/track_log/src/.+ _ reject
+^https?://gurd\.snssdk\.com/src/server/v\d/package _ reject
 ^https?://.+\.snssdk\.com/video/play/1/toutiao/.+/mp4 _ reject
 ^https?://.+\.snssdk\.com/api/ad/.+ _ reject
+^https?://.+\.byteimg\.com/tos-cn-i-1yzifmftcy/(.+)-jpeg\.jpeg _ reject
 ^http://.+\.byteimg\.com/ad-app-package _ reject
 ^http://.+\.byteimg\.com/web\.business\.image _ reject
-^https?://.+\.(pglstatp-toutiao|pstatp)\.com/(ad-app-package|ad)/.+ _ reject
 ^https?://adim\.pinduoduo\.com/.+/toutiao\?.+ _ reject
 
 [Map Local]
 # 仅检查模块加载及重写，不检查 MITM 或广告命中；响应在本机生成
-^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r7 已加载；本机重写生效。直播域名规则是否命中、广告是否消失仍需在请求记录中验证。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+^http://fanqie-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="番茄增强版 2026.09.25-r8 已加载；本机重写生效。广告是否消失请以请求记录中的 REJECT 为准。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
 
 [MITM]
 hostname = %APPEND% reading-hl.snssdk.com,i-hl.snssdk.com,gurd.snssdk.com,*.pstatp.com,adim.pinduoduo.com

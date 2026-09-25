@@ -1,10 +1,20 @@
 #!name=番茄小说去广告（轻量版）
-#!desc=2026.09.25-r3 · 拦截常见广告域名，无需开启 MITM
+#!desc=2026.09.25-r4 · 拦截广告 SDK 与素材域名，无需开启 MITM
 #!system=ios
 
-[Rule]
 # Surge iOS 5.8+：同时匹配请求域名、TLS SNI 和 HTTP Host
+# 只收录广告专用域名，对其他 App 的影响仅限广告。
+# 本机自检：http://fanqie-check.invalid/lite（必须使用 http）
+
+[Rule]
+# 穿山甲 / 字节广告接口与素材
 DOMAIN-WILDCARD,ads*-normal*.zijieapi.com,REJECT,extended-matching
-DOMAIN,p6-ad-sign.byteimg.com,REJECT,extended-matching
-DOMAIN,p9-ad-sign.byteimg.com,REJECT,extended-matching
-DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT,extended-matching
+DOMAIN-WILDCARD,p*-ad-sign.byteimg.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
+DOMAIN,zlink.ugsdk.cn,REJECT,extended-matching
+# 字节 HTTPDNS：拦截后 App 回退系统 DNS，域名规则不易被绕过
+DOMAIN,dig.bdurl.net,REJECT,extended-matching
+
+[Map Local]
+^http://fanqie-check\.invalid(?::80)?/lite(?:\?[^#]*)?$ data-type=text data="番茄轻量版 2026.09.25-r4 已加载。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
