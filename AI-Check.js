@@ -1,236 +1,181 @@
 /**
- * 多 AI 节点环境监测面板 v3.6 (Surge Panel)
- * ChatGPT / Claude: cdn-cgi/trace 取真实出口 IP -> ip-api.com 查归属/运营商/类型/风险/纯净度
- * Gemini: 半严格检测，仅识别明显地区/不可用提示
+ * AI 节点监测 · Surge 面板脚本
+ *
+ * ChatGPT / Claude：请求各自的 cdn-cgi/trace 拿到实际出口 IP 和地区，
+ *   再用 ip-api.com 查归属、运营商和 IP 类型。
+ * Gemini：读取网页里的可用标记和地区码。
+ *
+ * 请求按 Surge 当前规则分流，所以看到的就是这几个域名实际走的节点。
  */
+
+const TIMEOUT = 8; // 秒。$httpClient 的 timeout 单位是秒
+const ipCache = {};
+
+// OpenAI 和 Anthropic 都不提供服务的地区（两家名单的交集，不是完整名单）
+const BLOCKED_REGIONS = ["CN", "HK", "MO", "RU", "BY", "IR", "KP", "SY", "CU"];
+
+const DC_RE = new RegExp([
+  "google", "aws", "amazon", "azure", "microsoft", "cloudflare", "alibaba", "tencent",
+  "digitalocean", "linode", "vultr", "oracle", "ovh", "hetzner", "contabo", "leaseweb",
+  "serverius", "choopa", "psychz", "multacom", "zenlayer", "cogent", "hurricane",
+  "he\\.net", "buyvm", "frantech", "quadranet", "reliablesite", "sharktech", "steadfast",
+  "nexeon", "hostwinds", "datacamp", "m247", "servers\\.com",
+].join("|"), "i");
+
 (async () => {
+  const [gpt, claude, gemini] = await Promise.all([
+    checkTrace("ChatGPT", "🤖", "https://chatgpt.com/cdn-cgi/trace"),
+    checkTrace("Claude", "🔮", "https://claude.ai/cdn-cgi/trace"),
+    checkGemini(),
+  ]);
+
+  const SEP = "────────────";
+  const lines = [...renderTrace(gpt), SEP, ...renderTrace(claude), SEP, ...renderGemini(gemini)];
+  lines.push("", `🕐 ${timestamp()}`);
+  $done({ title: "🌐 AI 节点监测", content: lines.join("\n") });
+})().catch(e => {
+  $done({ title: "🌐 AI 节点监测", content: `脚本出错：${(e && e.message) || e}` });
+});
+
+// ---------- 检测 ----------
+
+async function checkTrace(name, icon, url) {
+  let trace = {};
   try {
-    const TIMEOUT = 8000;
-
-    const targets = [
-      { name: "ChatGPT", icon: "🤖", mode: "trace", url: "https://chatgpt.com/cdn-cgi/trace" },
-      { name: "Claude",  icon: "🔮", mode: "trace", url: "https://claude.ai/cdn-cgi/trace" },
-      { name: "Gemini",  icon: "✨", mode: "gemini-web", url: "https://gemini.google.com/app" },
-    ];
-
-    function httpGet(options) {
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("timeout")), options.timeout || TIMEOUT);
-        $httpClient.get(options, (error, response, body) => {
-          clearTimeout(timer);
-          if (error) { reject(error); return; }
-          resolve({
-            status: (response && (response.status || response.statusCode)) || 0,
-            headers: (response && response.headers) || {},
-            body: body || "",
-          });
-        });
-      });
-    }
-
-    function getFlag(cc) {
-      if (!cc || cc.length !== 2) return "";
-      return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) + " ";
-    }
-
-    function parseTrace(body) {
-      const data = {};
-      if (!body) return data;
-      body.split("\n").forEach(line => {
-        const index = line.indexOf("=");
-        if (index > -1) {
-          const key = line.slice(0, index).trim();
-          const value = line.slice(index + 1).trim();
-          if (key) data[key] = value;
-        }
-      });
-      return data;
-    }
-
-    function normalizeWarp(warp) {
-      if (!warp) return "未知";
-      if (warp === "on") return "on";
-      if (warp === "off") return "off";
-      if (warp === "plus") return "plus";
-      return warp;
-    }
-
-    function shorten(text, max) {
-      if (!text) return "—";
-      const s = String(text);
-      if (s.length <= max) return s;
-      return s.slice(0, max - 1) + "…";
-    }
-
-    function buildLocation(d, fallbackLoc) {
-      const countryCode = d && d.countryCode ? d.countryCode : fallbackLoc;
-      const flag = getFlag(countryCode || "");
-      const country = d && d.country ? d.country : fallbackLoc || "";
-      const region = d && d.regionName ? d.regionName : "";
-      const city = d && d.city ? d.city : "";
-      return [flag + country, region !== city ? region : "", city]
-        .filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || "—";
-    }
-
-    const DC_RE = new RegExp([
-      "google","aws","amazon","azure","microsoft","cloudflare","alibaba","tencent",
-      "digitalocean","linode","vultr","oracle","ovh","hetzner","contabo","leaseweb",
-      "serverius","choopa","psychz","multacom","zenlayer","cogent","lumen","hurricane",
-      "he\\.net","buyvm","frantech","quadranet","reliablesite","sharktech","steadfast",
-      "nexeon","hostwinds","datacamp","m247","servers\\.com",
-    ].join("|"), "i");
-
-    function detectIpQuality(d) {
-      const text = `${d.isp || ""} ${d.org || ""} ${d.as || ""}`;
-      if (d.mobile) return { type: "📱 移动网络", risk: "低 ✅", score: 85 };
-      if (d.proxy)  return { type: "🔀 代理/VPN", risk: "中 ⚡", score: 50 };
-      if (d.hosting || DC_RE.test(text)) return { type: "🏢 数据中心", risk: "高 ⚠️", score: 25 };
-      return { type: "🏠 住宅宽带", risk: "低 ✅", score: 95 };
-    }
-
-    async function queryIpQuality(ip) {
-      if (!ip) throw new Error("empty ip");
-      const fields = ["status","message","query","country","countryCode","regionName",
-        "city","isp","org","as","proxy","hosting","mobile"].join(",");
-      const res = await httpGet({
-        url: `http://ip-api.com/json/${encodeURIComponent(ip)}?lang=zh-CN&fields=${fields}`,
-        timeout: TIMEOUT,
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-      const d = JSON.parse(res.body || "{}");
-      if (!d || d.status === "fail") throw new Error(d.message || "ip-api fail");
-      return d;
-    }
-
-    async function checkTraceTarget(t) {
-      try {
-        const res = await httpGet({ url: t.url, timeout: TIMEOUT, headers: { "User-Agent": "Mozilla/5.0" } });
-        const status = res.status || 0;
-        const reachable = status >= 200 && status < 500;
-        const trace = parseTrace(res.body);
-        const ip = trace.ip || "";
-
-        let quality = null, qualityResult = null, qualityOk = false;
-        if (ip) {
-          try { quality = await queryIpQuality(ip); qualityResult = detectIpQuality(quality); qualityOk = true; } catch (_) {}
-        }
-
-        return {
-          name: t.name, icon: t.icon, mode: t.mode, reachable,
-          ok: Boolean(ip), ip: ip || "获取失败",
-          traceLoc: trace.loc || "—", traceFlag: getFlag(trace.loc || ""),
-          colo: trace.colo || "—", warp: normalizeWarp(trace.warp),
-          http: trace.http || "—", tls: trace.tls || "—",
-          qualityOk,
-          loc: qualityOk ? buildLocation(quality, trace.loc) : `${getFlag(trace.loc || "")}${trace.loc || "—"}`,
-          isp: qualityOk ? shorten(quality.isp || quality.org || "—", 28) : "—",
-          org: qualityOk ? shorten(quality.org || "—", 28) : "—",
-          as: qualityOk ? shorten(quality.as || "—", 32) : "—",
-          type: qualityResult ? qualityResult.type : "—",
-          risk: qualityResult ? qualityResult.risk : "—",
-          score: qualityResult ? qualityResult.score : 0,
-        };
-      } catch (_) {
-        return {
-          name: t.name, icon: t.icon, mode: t.mode, reachable: false, ok: false,
-          ip: "获取失败", traceLoc: "—", traceFlag: "", colo: "—", warp: "—",
-          http: "—", tls: "—", qualityOk: false, loc: "—", isp: "—", org: "—",
-          as: "—", type: "—", risk: "—", score: 0,
-        };
-      }
-    }
-
-    async function checkGeminiWebTarget(t) {
-      try {
-        const res = await httpGet({
-          url: t.url, timeout: TIMEOUT,
-          headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8" },
-        });
-        const status = res.status || 0;
-        const body = String(res.body || "").toLowerCase();
-        const pageReachable = status >= 200 && status < 500;
-
-        const blockedKeywords = [
-          "not available","not currently available","isn't currently supported",
-          "is not currently supported","unsupported","unavailable","country","region",
-          "your location","doesn't support","does not support","gemini isn't available",
-          "gemini is not available","此地区","所在地区","不可用","无法使用","暂不支持",
-        ];
-        const hasBlockedKeyword = blockedKeywords.some(k => body.includes(k));
-
-        let geminiStatus = "unknown", label = "未知", reason = "无法确认 Gemini 登录后是否可对话";
-        if (!pageReachable) {
-          geminiStatus = "down"; label = "❌ 入口不可达"; reason = "Gemini Web 入口请求失败";
-        } else if (hasBlockedKeyword) {
-          geminiStatus = "suspicious"; label = "⚠️ 疑似不可用"; reason = "页面包含地区/不可用相关提示";
-        } else {
-          geminiStatus = "reachable"; label = "🌐 入口可达"; reason = "非严格检测，不代表登录后一定可对话";
-        }
-
-        return {
-          name: t.name, icon: t.icon, mode: t.mode,
-          reachable: pageReachable && !hasBlockedKeyword,
-          pageReachable, status, geminiStatus, label, reason,
-        };
-      } catch (_) {
-        return {
-          name: t.name, icon: t.icon, mode: t.mode, reachable: false,
-          pageReachable: false, status: 0, geminiStatus: "down",
-          label: "❌ 入口不可达", reason: "请求异常或超时",
-        };
-      }
-    }
-
-    async function checkOne(t) {
-      if (t.mode === "trace") return await checkTraceTarget(t);
-      if (t.mode === "gemini-web") return await checkGeminiWebTarget(t);
-      return { name: t.name, icon: t.icon, mode: t.mode, reachable: false };
-    }
-
-    const results = [];
-    for (const t of targets) {
-      const r = await checkOne(t);
-      results.push(r);
-    }
-
-    const SEP = "────────────";
-    const lines = [];
-
-    results.forEach((r, i) => {
-      if (r.mode === "trace") {
-        lines.push(`${r.icon} ${r.name}   ${r.reachable ? "✅ 可用" : "❌ 不可用"}`);
-        if (r.ok) {
-          lines.push(`IP    : ${r.ip}`);
-          lines.push(`归属  : ${r.loc}`);
-          if (r.qualityOk) {
-            lines.push(`运营商: ${r.isp}`);
-            lines.push(`类型  : ${r.type}`);
-            lines.push(`风险  : ${r.risk}   纯净度: ${r.score}/100`);
-          } else {
-            lines.push(`纯净度: 查询失败`);
-          }
-          lines.push(`机房  : ${r.colo}`);
-          lines.push(`WARP  : ${r.warp}`);
-        } else {
-          lines.push("IP 信息获取失败");
-        }
-      }
-      if (r.mode === "gemini-web") {
-        lines.push(`${r.icon} ${r.name}   ${r.label}`);
-        lines.push(`检测  : Gemini Web 半严格检测`);
-        lines.push(`说明  : ${r.reason}`);
-        if (r.status) lines.push(`状态码: ${r.status}`);
-      }
-      if (i < results.length - 1) lines.push(SEP);
-    });
-
-    const now = new Date();
-    const pad = n => String(n).padStart(2, "0");
-    lines.push("");
-    lines.push(`🕐 ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`);
-
-    $done({ title: "🌐 AI 节点监测", content: lines.join("\n") });
-  } catch (e) {
-    $done({ title: "🌐 AI 节点监测", content: `脚本执行异常:\n${String((e && e.message) || e)}` });
+    const res = await httpGet({ url, headers: { "User-Agent": "Mozilla/5.0" } });
+    trace = parseTrace(res.body);
+  } catch (_) {
+    return { name, icon, ok: false };
   }
-})();
+  if (!trace.ip) return { name, icon, ok: false };
+
+  let info = null;
+  try { info = await lookupIp(trace.ip); } catch (_) { /* 只显示 trace 信息 */ }
+  return { name, icon, ok: true, trace, info };
+}
+
+async function checkGemini() {
+  let res;
+  try {
+    res = await httpGet({
+      url: "https://gemini.google.com/app",
+      headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9" },
+    });
+  } catch (_) {
+    return { label: "❌ 连不上", note: "请求失败或超时" };
+  }
+  if (!res.status || res.status >= 500) return { label: "❌ 连不上", note: `HTTP ${res.status}` };
+
+  const body = String(res.body || "");
+  const region = (body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1] || "";
+  // 页面里带 45631641,null,true 表示当前地区可用
+  if (body.includes("45631641,null,true")) return { label: "✅ 可用", region };
+  if (/not (currently )?(available|supported) in your (country|region)|所在的?(国家|地区)/i.test(body)) {
+    return { label: "❌ 地区不支持", region };
+  }
+  return { label: "⚠️ 未确认", region, note: "页面里没有可用标记" };
+}
+
+// 同一次运行里 ChatGPT 和 Claude 往往是同一个出口，查一次就够
+function lookupIp(ip) {
+  if (!ipCache[ip]) {
+    const fields = "status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile";
+    ipCache[ip] = httpGet({
+      url: `http://ip-api.com/json/${encodeURIComponent(ip)}?lang=zh-CN&fields=${fields}`,
+      headers: { "User-Agent": "Mozilla/5.0" },
+    }).then(res => {
+      const d = JSON.parse(res.body || "{}");
+      if (d.status !== "success") throw new Error(d.message || "ip-api 查询失败");
+      return d;
+    });
+  }
+  return ipCache[ip];
+}
+
+// ---------- 输出 ----------
+
+function renderTrace(r) {
+  if (!r.ok) return [`${r.icon} ${r.name}   ❌ 连不上`, "没拿到出口 IP"];
+
+  const t = r.trace;
+  const blocked = BLOCKED_REGIONS.indexOf((t.loc || "").toUpperCase()) >= 0;
+  const status = blocked ? `⚠️ 地区受限（${t.loc}）` : "✅ 可访问";
+  const lines = [`${r.icon} ${r.name}   ${status}`, `IP    : ${t.ip}`];
+
+  if (r.info) {
+    const d = r.info;
+    const q = classify(d);
+    const place = [flag(d.countryCode || t.loc) + (d.country || t.loc || ""),
+      d.regionName !== d.city ? d.regionName : "", d.city]
+      .filter(Boolean).join(" ");
+    lines.push(`归属  : ${place || "—"}`);
+    lines.push(`运营商: ${shorten(d.isp || d.org, 28)}`);
+    lines.push(`类型  : ${q.type}`);
+    lines.push(`风险  : ${q.risk}   纯净度: ${q.score}/100`);
+  } else {
+    lines.push(`归属  : ${flag(t.loc)}${t.loc || "—"}（ip-api 没查到）`);
+  }
+  lines.push(`机房  : ${t.colo || "—"}`);
+  lines.push(`WARP  : ${t.warp || "—"}`);
+  return lines;
+}
+
+function renderGemini(r) {
+  const lines = [`✨ Gemini   ${r.label}`];
+  if (r.region) lines.push(`地区  : ${r.region}`);
+  if (r.note) lines.push(`说明  : ${r.note}`);
+  return lines;
+}
+
+// 和 Scripts/ipquality_surge.js 用同一套分级
+function classify(d) {
+  const text = `${d.isp || ""} ${d.org || ""} ${d.as || ""}`;
+  if (d.mobile) return { type: "📱 移动网络", risk: "低 ✅", score: 85 };
+  if (d.proxy) return { type: "🔀 代理/VPN", risk: "高 ⚠️", score: 30 };
+  if (d.hosting || DC_RE.test(text)) return { type: "🏢 数据中心", risk: "中 ⚡", score: 45 };
+  return { type: "🏠 住宅宽带", risk: "低 ✅", score: 95 };
+}
+
+// ---------- 工具 ----------
+
+function httpGet(opts) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn, value) => { if (!settled) { settled = true; fn(value); } };
+    // 兜底计时器。JSC 引擎没有 clearTimeout，所以用 settled 标记代替
+    setTimeout(() => settle(reject, new Error("timeout")), (TIMEOUT + 2) * 1000);
+    $httpClient.get(Object.assign({ timeout: TIMEOUT }, opts), (error, response, body) => {
+      if (error) return settle(reject, new Error(String(error)));
+      settle(resolve, {
+        status: (response && (response.status || response.statusCode)) || 0,
+        body: body || "",
+      });
+    });
+  });
+}
+
+function parseTrace(body) {
+  const data = {};
+  String(body || "").split("\n").forEach(line => {
+    const i = line.indexOf("=");
+    if (i > 0) data[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  });
+  return data;
+}
+
+function flag(cc) {
+  if (!cc || cc.length !== 2) return "";
+  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) + " ";
+}
+
+function shorten(text, max) {
+  if (!text) return "—";
+  const s = String(text);
+  return s.length <= max ? s : s.slice(0, max - 1) + "…";
+}
+
+function timestamp() {
+  const n = new Date();
+  const p = x => String(x).padStart(2, "0");
+  return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;
+}

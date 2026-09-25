@@ -1,6 +1,59 @@
-# Gemini / Google AI 规则集
-DOMAIN,gemini.google.com
-DOMAIN,generativelanguage.googleapis.com
+# NAME: Gemini / Google AI
+# 整理自 v2fly/domain-list-community 的 google-deepmind 列表（2026-09-25）
+# 只收 Google AI 相关域名。以前的 googleapis.com、googleusercontent.com 整段后缀
+# 会把 YouTube、Google Play、地图等请求也分到这里，已去掉。
+
+# Gemini
+DOMAIN-SUFFIX,gemini.google.com
+DOMAIN-SUFFIX,gemini.google
+DOMAIN-SUFFIX,gemini.gstatic.com
+DOMAIN-SUFFIX,bard.google.com
+
+# Gemini API / AI Studio
+DOMAIN-SUFFIX,generativelanguage.googleapis.com
+DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com
+DOMAIN-SUFFIX,robinfrontend-pa.googleapis.com
+DOMAIN-SUFFIX,geller-pa.googleapis.com
 DOMAIN,ai.google.dev
-DOMAIN-SUFFIX,googleapis.com
-DOMAIN-SUFFIX,googleusercontent.com
+DOMAIN-SUFFIX,aistudio.google.com
+DOMAIN-SUFFIX,ai.studio
+DOMAIN-SUFFIX,makersuite.google.com
+DOMAIN-SUFFIX,generativeai.google
+DOMAIN,alkalicore-pa.clients6.google.com
+DOMAIN,alkalimakersuite-pa.clients6.google.com
+DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com
+
+# Gemini Code Assist / Android Studio
+DOMAIN,cloudaicompanion.googleapis.com
+DOMAIN,cloudcode-pa.googleapis.com
+DOMAIN,daily-cloudcode-pa.googleapis.com
+DOMAIN-SUFFIX,aicode.googleapis.com
+DOMAIN-SUFFIX,aida.googleapis.com
+
+# NotebookLM
+DOMAIN-SUFFIX,notebooklm.google.com
+DOMAIN-SUFFIX,notebooklm.google
+DOMAIN-SUFFIX,notebook.google.com
+DOMAIN-SUFFIX,notebook.google
+DOMAIN,notebooklm-pa.googleapis.com
+DOMAIN,notebooklm.googleapis.com
+
+# Google Labs / Flow / Jules / Opal / Stitch / Antigravity
+DOMAIN-SUFFIX,labs.google
+DOMAIN-SUFFIX,labs.google.com
+DOMAIN-SUFFIX,flow.google
+DOMAIN-SUFFIX,flow.google.com
+DOMAIN-SUFFIX,aisandbox-pa.googleapis.com
+DOMAIN-SUFFIX,jules.google
+DOMAIN-SUFFIX,jules.google.com
+DOMAIN-SUFFIX,opal.google
+DOMAIN-SUFFIX,opal.google.com
+DOMAIN-SUFFIX,stitch.withgoogle.com
+DOMAIN-SUFFIX,antigravity.google
+DOMAIN-SUFFIX,antigravity-unleash.goog
+DOMAIN,antigravity-pa.googleapis.com
+DOMAIN,antigravity.googleapis.com
+
+# DeepMind
+DOMAIN-SUFFIX,deepmind.com
+DOMAIN-SUFFIX,deepmind.google
