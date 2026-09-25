@@ -5,7 +5,7 @@
 | 模块 | 当前版本 | 用途 |
 | --- | --- | --- |
 | [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 2026.09.25-r3 | 拦截几组广告域名，无需 MITM |
-| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r5 | 域名拦截及素材、接口重写，需要 MITM |
+| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r6 | 域名拦截及素材、接口重写，需要 MITM |
 | [直播流临时测试](Fanqie_LiveStream_Test.sgmodule) | 2026.09.25-test1 | 拦截实测中出现的一个共享直播通道，无需 MITM |
 
 ## 安装
@@ -18,21 +18,22 @@
 
 轻量版需要 Surge iOS 5.8+；另外两个模块需要 5.9.1+。使用规则模式，增强版和直播流测试还要打开重写。增强版需要开启 MITM，并安装和信任 Surge 证书。
 
-排查时关闭其他番茄去广告模块，只留增强版。直播流测试可以与增强版一起启用。更新后强制退出番茄，再打开。
+如果正在出现大量 `MitM Failed`，先关闭增强版并强制退出番茄，停止反复触发广告。更新后确认模块说明为 r6。排查时关闭其他番茄去广告模块和直播流临时测试，只保留更新后的增强版。
 
-## r5 修复的实际问题
+## r6 修复了什么
 
-r4 添加了 `*.snssdk.com` 和 `*.byteimg.com` 两组 MITM 通配符。手机请求详情随后明确显示：
+手机请求详情明确记录：`v11-novelapp.fqnovelvod.com` 和 `v95-sz-novelapp.fqnovelvod.com` 命中增强版的 `*novelapp.fqnovelvod.com` 后，客户端在 TLS 握手后断开。Surge 提示可能存在证书固定。这是连接失败，不是成功去广告。
 
-- `p6-novel.byteimg.com` 命中增强版的 `*.byteimg.com`，随后 MITM 失败。
-- `i-lq.snssdk.com` 命中增强版的 `*.snssdk.com`，随后 MITM 失败。
-- 客户端在 TLS 握手后断开，Surge 提示可能存在证书固定。这不是“拦截成功”的记录。
+r5 只撤回了 `*.snssdk.com` 和 `*.byteimg.com`，漏掉了这组视频域名，修复不完整。r6 做了两项调整：
 
-r5 撤回这两组通配符。snssdk 仅保留原来的 `reading-hl`、`i-hl` 和 `gurd`；其他 MITM 项为 `*.pstatp.com`、`*novelapp.fqnovelvod.com`、`adim.pinduoduo.com`。不再由本模块解密上述两个失败域名。如果别的模块也把它们加入 MITM，仍可能报错，应看请求详情中标明的来源。
+- 从 MITM 列表删除 `*novelapp.fqnovelvod.com`。
+- 删除对应的视频路径重写，不改成整个视频 CDN 或 IP 封禁。
 
-保留从 FanQieNovel 移植的 16 条重写。撤回部分 MITM 后，相应 HTTPS 路径不会被本模块解密和改写；普通 HTTP 不受这项限制。关闭服务器证书验证不能解决客户端拒绝 Surge 证书的问题。
+当前 MITM 仅保留 `reading-hl.snssdk.com`、`i-hl.snssdk.com`、`gurd.snssdk.com`、`*.pstatp.com`、`adim.pinduoduo.com`。如果其他模块或主配置仍要求解密视频域名，连接仍可能失败，以请求详情标明的来源为准。
 
-r5 先修复已发现的连接冲突，尚未确认能消除阅读广告。
+其余 15 条重写保留；对应 HTTPS 连接未成功解密时，路径规则无法生效。关闭服务器证书验证也不能解决客户端拒绝 Surge 证书的问题。
+
+这次更新撤回已确认引发失败的配置。已检查规则变化和仓库文件，尚未在手机上验证恢复情况，阅读页视频广告仍未解决。不要把错误数量减少当成去广告成功。
 
 ## 直播流临时测试
 
@@ -42,7 +43,7 @@ r5 先修复已发现的连接冲突，尚未确认能消除阅读广告。
 
 测试方法：
 
-1. 更新增强版至 r5，按需安装并开启直播流临时测试。
+1. 先确认更新至 r6 后连接恢复正常，再按需安装并开启直播流临时测试。
 2. 强制退出番茄，再进入阅读页翻页，先不要点击进入直播间。
 3. 看阅读页直播卡片是否仍播放，同时查看 `pull-flv-l1` 请求有无被重写拒绝。
 4. 若视频停了但卡片仍在，只能证明这条素材流被挡住，广告入口还未处理。其他视频广告也不一定使用这条通道。
@@ -52,7 +53,7 @@ r5 先修复已发现的连接冲突，尚未确认能消除阅读广告。
 
 在 Safari 输入完整 HTTP 地址：
 
-- 增强版：`http://fanqie-check.invalid/?v=r5`，应显示增强版 r5 已加载。
+- 增强版：`http://fanqie-check.invalid/?v=r6`，应显示增强版 r6 已加载。
 - 直播测试：`http://fanqie-check.invalid/live-test`，应显示 test1 已加载。
 
 文字由 Surge 在本机返回，不上传数据。检查只证明对应模块的本机重写工作，不证明 MITM 成功或广告已拦截。打不开时核对版本、启用状态、重写开关，以及是否被浏览器改成 HTTPS。
