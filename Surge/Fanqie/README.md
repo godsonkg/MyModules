@@ -5,7 +5,7 @@
 | 模块 | 当前版本 | 用途 |
 | --- | --- | --- |
 | [轻量版](Fanqie_AdBlock_Lite.sgmodule) | 2026.09.25-r3 | 拦截几组广告域名，无需 MITM |
-| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r6 | 域名拦截及素材、接口重写，需要 MITM |
+| [增强版](Fanqie_AdBlock_Enhanced.sgmodule) | 2026.09.25-r7 | 域名拦截及素材、接口重写，需要 MITM |
 | [直播流临时测试](Fanqie_LiveStream_Test.sgmodule) | 2026.09.25-test1 | 拦截实测中出现的一个共享直播通道，无需 MITM |
 
 ## 安装
@@ -18,7 +18,23 @@
 
 轻量版需要 Surge iOS 5.8+；另外两个模块需要 5.9.1+。使用规则模式，增强版和直播流测试还要打开重写。增强版需要开启 MITM，并安装和信任 Surge 证书。
 
-如果正在出现大量 `MitM Failed`，先关闭增强版并强制退出番茄，停止反复触发广告。更新后确认模块说明为 r6。排查时关闭其他番茄去广告模块和直播流临时测试，只保留更新后的增强版。
+如果正在出现大量 `MitM Failed`，先关闭增强版并强制退出番茄。更新后确认模块说明为 r7。排查时关闭其他番茄去广告模块和直播流临时测试，只保留更新后的增强版。
+
+## r7 试验的规则
+
+之前的 15 条路径重写多数要先解密 HTTPS；手机截图已有视频域名解密失败，靠继续增加 MITM 项容易重演握手错误。研究以下 GitHub 番茄模块后，r7 只增加三条明确域名拦截：
+
+| 域名 | 依据 | 可能影响 |
+| --- | --- | --- |
+| `content-open.douyin.com` | 手机上 19:31 阅读广告期间仍有该域名直连；[zirawell 模块](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/F/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4/fanqie.sgmodule) 有相同拦截 | 抖音开放平台及直播跳转 |
+| `webcast-open.douyin.com` | zirawell 与[可莉模块](https://github.com/Masamisuki/Tool/blob/main/iKeLee/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4%E5%8E%BB%E5%B9%BF%E5%91%8A.sgmodule) 均有 | 抖音直播功能 |
+| `lf-webcast-gr-sourcecdn.bytegecko.com` | 上述两个模块均有 | 共享的直播素材下载 |
+
+这三条是**候选规则**，GitHub 收录和时间接近广告只能说明值得测试，不能证明是当前视频插页的起因。Surge iOS 不能用进程规则只限制番茄，因此规则作用于整台设备。遇到其他 App 的直播故障或连续重试，关闭增强版即可撤销这批规则。
+
+验证方式：更新到 r7，强制退出番茄，重现一次阅读页广告，在 Surge 最近请求中搜索 `content-open.douyin.com`、`webcast-open.douyin.com`、`lf-webcast-gr-sourcecdn.bytegecko.com`。记录是否显示命中本模块的 REJECT，及广告画面是否依然出现。如果三条均未出现，说明这批域名与此次插页没有可见关联；如果命中而广告仍显示，就要找返回广告配置的接口，不能继续靠封素材 CDN 猜测。
+
+对照资料：[zqzess Surge 规则](https://github.com/zqzess/rule_for_quantumultX/blob/master/Surge/Module/FanQieNovel.sgmodule)、[zirawell 模块](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/F/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4/fanqie.sgmodule)、[可莉模块](https://github.com/Masamisuki/Tool/blob/main/iKeLee/%E7%95%AA%E8%8C%84%E5%B0%8F%E8%AF%B4%E5%8E%BB%E5%B9%BF%E5%91%8A.sgmodule)。这些规则未提供对你当前版本的效果证明。
 
 ## r6 修复了什么
 
@@ -43,7 +59,7 @@ r5 只撤回了 `*.snssdk.com` 和 `*.byteimg.com`，漏掉了这组视频域名
 
 测试方法：
 
-1. 先确认更新至 r6 后连接恢复正常，再按需安装并开启直播流临时测试。
+1. 先确认更新至 r7 后连接恢复正常，再按需安装并开启直播流临时测试。
 2. 强制退出番茄，再进入阅读页翻页，先不要点击进入直播间。
 3. 看阅读页直播卡片是否仍播放，同时查看 `pull-flv-l1` 请求有无被重写拒绝。
 4. 若视频停了但卡片仍在，只能证明这条素材流被挡住，广告入口还未处理。其他视频广告也不一定使用这条通道。
@@ -53,7 +69,7 @@ r5 只撤回了 `*.snssdk.com` 和 `*.byteimg.com`，漏掉了这组视频域名
 
 在 Safari 输入完整 HTTP 地址：
 
-- 增强版：`http://fanqie-check.invalid/?v=r6`，应显示增强版 r6 已加载。
+- 增强版：`http://fanqie-check.invalid/?v=r7`，应显示增强版 r7 已加载。
 - 直播测试：`http://fanqie-check.invalid/live-test`，应显示 test1 已加载。
 
 文字由 Surge 在本机返回，不上传数据。检查只证明对应模块的本机重写工作，不证明 MITM 成功或广告已拦截。打不开时核对版本、启用状态、重写开关，以及是否被浏览器改成 HTTPS。
