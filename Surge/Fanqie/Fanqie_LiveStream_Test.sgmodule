@@ -1,0 +1,17 @@
+#!name=番茄小说直播流拦截（临时测试）
+#!desc=2026.09.25-test1 · 拦截已观察到的共享直播通道，也会影响同通道的正常抖音直播
+#!system=ios
+
+# 可与增强版一起启用。需要开启重写，不需要 MITM。Surge iOS 5.9.1+。
+# 仅用于验证阅读页直播卡片是否使用此流；不是广告专用域名。
+# 来源：实际请求中的 pull-flv-l1.douyincdn.com/stage/stream-*.flv。
+# 兼容 CDN 域名直连及 IPv4/域名/路径两种明文 HTTP 地址，不封禁 CDN IP。
+# 只覆盖已观察到的 l1 通道和 .flv 路径，不表示能拦住全部广告或直播。
+# 测试结束后关闭本模块，以恢复同通道正常直播。
+# 本机自检：http://fanqie-check.invalid/live-test
+
+[URL Rewrite]
+^http://(?:(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?/)?pull-flv-l1\.douyincdn\.com(?::\d+)?/stage/stream-\d+\.flv(?:\?|$) _ reject
+
+[Map Local]
+^http://fanqie-check\.invalid(?::80)?/live-test(?:\?[^#]*)?$ data-type=text data="直播流临时测试模块 2026.09.25-test1 已加载。本模块会影响同通道的正常直播；测试结束后请关闭。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
