@@ -25,6 +25,8 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/AI-Check.sgmodule
 - ChatGPT / Claude：出口 IP、归属、运营商、IP 类型（住宅 / 数据中心 / 代理 / 移动），出口在两家都不支持的地区（如 HK、CN、RU）会标出来
 - Gemini：读网页里的可用标记，显示“可用 / 地区不支持 / 未确认”和地区码
 
+ChatGPT / Claude 的结果来自 `cdn-cgi/trace`，能拿到出口 IP 不代表登录、对话或 API 一定可用。地区提示使用脚本内置列表；Gemini 使用网页标记判断，页面变化时可能显示“未确认”。
+
 点面板刷新，不会自动跑。
 
 ## 节点 IP 质量检测
@@ -43,7 +45,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/IPQuality.sgmodu
 https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/GD_FuelPrice.sgmodule
 ```
 
-面板效果：
+面板示例（以下日期和价格仅演示格式）：
 
 ```
 广东油价

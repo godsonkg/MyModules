@@ -20,23 +20,23 @@ Surge/Loon 配置的只读健康检查器。它在配置同步到手机前检查
 
 ```powershell
 # 基础检查
-python tools/proxy_health/proxy_health.py check "G:\config\Loon_VK.conf"
+python tools/proxy_health/proxy_health.py check "path\to\Loon.conf"
 
 # 生成 Markdown 报告
-python tools/proxy_health/proxy_health.py check "G:\config\Loon_VK.conf" `
+python tools/proxy_health/proxy_health.py check "path\to\Loon.conf" `
   --format markdown --output proxy-health-report.md
 
 # 上传公开仓库前，把敏感信息提升为阻断错误
-python tools/proxy_health/proxy_health.py check "G:\config\Loon_VK.conf" `
+python tools/proxy_health/proxy_health.py check "path\to\Loon.conf" `
   --secret-level error
 
 # 路由回归测试
-python tools/proxy_health/proxy_health.py test "G:\config\Loon_VK.conf" `
+python tools/proxy_health/proxy_health.py test "path\to\Loon.conf" `
   tools/proxy_health/examples/route-tests.json
 
 # 比较 Surge 与 Loon
-python tools/proxy_health/proxy_health.py compare "G:\config\Surge.conf" `
-  "G:\config\Loon.conf" tools/proxy_health/examples/route-tests.json
+python tools/proxy_health/proxy_health.py compare "path\to\Surge.conf" `
+  "path\to\Loon.conf" tools/proxy_health/examples/route-tests.json
 ```
 
 退出码：`0` 表示达到设定门槛，`1` 表示发现需要阻止发布的问题，`2` 表示文件或命令错误。默认仅错误导致退出码 `1`；加 `--fail-on warning` 可让警告也阻止发布，加 `--fail-on never` 可始终生成报告而不失败。
@@ -71,5 +71,11 @@ python tools/proxy_health/proxy_health.py compare "G:\config\Surge.conf" `
 - 检查器不会上传配置。公开仓库建议只放检查器和脱敏样例；真实配置应留在本地或私人仓库。
 
 ## 自动测试
+
+在仓库根目录运行单元测试：
+
+```powershell
+python -m unittest discover -s tools/proxy_health/tests -v
+```
 
 仓库中的 `.github/workflows/proxy_health.yml` 会在相关文件变更时运行单元测试，并检查两份脱敏样例。真实配置不会被 Actions 自动读取。
