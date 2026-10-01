@@ -17,12 +17,15 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -36,12 +39,19 @@ jobs:
           python tools/proxy_health/proxy_health.py test tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json
           python tools/proxy_health/proxy_health.py compare tools/proxy_health/examples/surge.conf tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json
 
+      - name: Check locked external rule snapshots
+        run: >-
+          python tools/proxy_health/proxy_health.py test
+          tools/proxy_health/examples/external-rules.conf
+          tools/proxy_health/examples/external-route-tests.json
+          --rule-map tools/proxy_health/examples/rule-map.json --fail-on warning
+
       - name: Build Markdown report artifact
         run: |
           python tools/proxy_health/proxy_health.py compare tools/proxy_health/examples/surge.conf tools/proxy_health/examples/loon.conf tools/proxy_health/examples/route-tests.json --format markdown --output proxy-health-report.md
 
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: proxy-health-report
           path: proxy-health-report.md

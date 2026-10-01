@@ -1,0 +1,9 @@
+# NAME: PikPak-Proxy
+# PikPak 的 App、账号和 API。PikPak 限制大陆 IP，直连用不了
+# 域名对照 v2fly/domain-list-community（pikpak）和 blackmatrix7/ios_rule_script（2026-09-25 核对）
+DOMAIN-SUFFIX,mypikpak.com
+DOMAIN-SUFFIX,mypikpak.net
+DOMAIN-SUFFIX,pikpak.me
+DOMAIN-SUFFIX,pikpak.io
+DOMAIN-SUFFIX,pikpakdrive.com
+DOMAIN-SUFFIX,pickpackapp.com

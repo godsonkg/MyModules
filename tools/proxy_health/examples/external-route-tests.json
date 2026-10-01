@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "host": "api.mypikpak.com",
+      "expect": "PikPak"
+    },
+    {
+      "host": "dl.sandai.net",
+      "expect": "DIRECT"
+    },
+    {
+      "host": "emby.enjoyit.eu.org",
+      "expect": "Emby"
+    },
+    {
+      "host": "video.emby.wtf",
+      "expect": "Emby"
+    }
+  ]
+}

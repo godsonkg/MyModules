@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
+from urllib.parse import urlsplit
 
 
 VERSION = "0.1.0"
@@ -75,6 +77,7 @@ class ConfigModel:
     remote_providers: set[str] = field(default_factory=set)
     rules: list[Rule] = field(default_factory=list)
     parse_findings: list[Finding] = field(default_factory=list)
+    remote_rules: dict[tuple[str, str], tuple[tuple[str, str], ...]] = field(default_factory=dict)
 
     @property
     def policies(self) -> set[str]:
@@ -452,31 +455,93 @@ def run_checks(model: ConfigModel, secret_level: str = "warning") -> list[Findin
     return sort_findings(findings)
 
 
+def load_rule_snapshots(path: Path) -> dict[tuple[str, str], tuple[tuple[str, str], ...]]:
+    """Read only explicitly mapped, hash-locked local snapshots. Never fetch URLs."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, dict) or data.get("version") != 1 or not isinstance(data.get("sets"), list):
+            raise ValueError
+        result = {}
+        base = path.resolve().parent
+        for entry in data["sets"]:
+            if not isinstance(entry, dict):
+                raise ValueError
+            source, kind = entry["source"], entry["type"]
+            if not isinstance(source, str) or kind not in REMOTE_RULE_TYPES:
+                raise ValueError
+            url = urlsplit(source)
+            # Credentials, query strings and fragments must never become snapshots.
+            if url.scheme != "https" or not url.hostname or url.username or url.password or url.query or url.fragment:
+                raise ValueError
+            relative = Path(entry["file"])
+            target = (base / relative).resolve()
+            if relative.is_absolute() or not target.is_relative_to(base):
+                raise ValueError
+            if not isinstance(entry["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]):
+                raise ValueError
+            if target.stat().st_size > 2 * 1024 * 1024:
+                raise ValueError
+            raw = target.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != entry["sha256"]:
+                raise ValueError
+            rules = []
+            for line in raw.decode("utf-8-sig").splitlines():
+                line = line.strip()
+                if not line or line.startswith(("#", ";", "//")):
+                    continue
+                if kind == "DOMAIN-SET":
+                    rule_kind = "DOMAIN-SUFFIX" if line.startswith(".") else "DOMAIN"
+                    value = line.lstrip(".")
+                else:
+                    parts = [part.strip() for part in line.split(",")]
+                    rule_kind, value = (parts[0].upper(), parts[1]) if len(parts) == 2 else ("UNSUPPORTED", "")
+                if rule_kind in DOMAIN_RULE_TYPES:
+                    if not value.strip(".") or not re.fullmatch(r"[A-Za-z0-9_.-]+", value):
+                        raise ValueError
+                    rules.append((rule_kind, value.lower().strip(".")))
+                else:
+                    # Preserve position of unsupported/IP/process/nested rules.
+                    rules.append(("UNSUPPORTED", ""))
+            key = (kind, source)
+            if key in result:
+                raise ValueError
+            result[key] = tuple(rules)
+        return result
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+        # Do not echo paths, URLs, JSON fragments or credentials from invalid input.
+        raise ValueError("规则快照映射无效、文件不可读或 SHA-256 不匹配") from None
+
+
+def domain_matches(kind: str, value: str, host: str) -> bool:
+    if kind == "DOMAIN":
+        return host == value
+    if kind == "DOMAIN-SUFFIX":
+        return host == value or host.endswith("." + value)
+    if kind == "DOMAIN-KEYWORD":
+        return value in host
+    return kind in FINAL_TYPES
+
+
 def route_host(model: ConfigModel, host: str) -> RouteResult:
     normalized = host.lower().rstrip(".")
     unresolved: list[int] = []
     for rule in model.rules:
         if rule.kind in REMOTE_RULE_TYPES:
-            unresolved.append(rule.line)
+            snapshot = model.remote_rules.get((rule.kind, rule.value or ""))
+            if snapshot is None:
+                unresolved.append(rule.line)
+                continue
+            for kind, value in snapshot:
+                if kind == "UNSUPPORTED":
+                    if rule.line not in unresolved:
+                        unresolved.append(rule.line)
+                elif domain_matches(kind, value, normalized):
+                    return RouteResult(normalized, rule.policy, rule.line,
+                                       rule.kind + "/" + kind, tuple(unresolved))
             continue
         value = (rule.value or "").lower().strip(".")
-        matched = False
-        if rule.kind == "DOMAIN":
-            matched = normalized == value
-        elif rule.kind == "DOMAIN-SUFFIX":
-            matched = normalized == value or normalized.endswith("." + value)
-        elif rule.kind == "DOMAIN-KEYWORD":
-            matched = value in normalized
-        elif rule.kind in FINAL_TYPES:
-            matched = True
-        if matched:
-            return RouteResult(
-                normalized,
-                rule.policy,
-                rule.line,
-                rule.kind,
-                tuple(unresolved),
-            )
+        if domain_matches(rule.kind, value, normalized):
+            return RouteResult(normalized, rule.policy, rule.line, rule.kind, tuple(unresolved))
     return RouteResult(normalized, None, None, None, tuple(unresolved))
 
 
@@ -509,7 +574,7 @@ def run_route_cases(
                 Finding(
                     "warning",
                     "ROUTE_UNCERTAIN",
-                    f"{prefix}{host} 之前经过未展开的远程规则（行 {lines}），模拟结果可能不完整",
+                    f"{prefix}{host} 之前经过未展开或含不支持条目的远程规则（行 {lines}），模拟结果可能不完整",
                     result.line,
                     "Rule",
                 )
@@ -525,7 +590,7 @@ def run_route_cases(
                     "Rule",
                 )
             )
-        elif expected is not None:
+        elif expected is not None and not result.unresolved_remote_lines:
             findings.append(
                 Finding(
                     "info",
@@ -664,6 +729,7 @@ def should_fail(findings: Sequence[Finding], fail_on: str) -> bool:
 def add_output_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--format", choices=("text", "markdown", "json"), default="text")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--rule-map", type=Path, help="本地规则快照映射 JSON；不联网，强制 SHA-256 校验")
     parser.add_argument("--fail-on", choices=("error", "warning", "never"), default="error")
     parser.add_argument(
         "--secret-level",
@@ -700,12 +766,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        snapshots = load_rule_snapshots(args.rule_map) if args.rule_map else {}
         if args.command == "check":
             model = parse_config(args.config, args.client)
+            model.remote_rules = snapshots
             models = [model]
             findings = run_checks(model, args.secret_level)
         elif args.command == "test":
             model = parse_config(args.config, args.client)
+            model.remote_rules = snapshots
             models = [model]
             findings = sort_findings(
                 run_checks(model, args.secret_level)
@@ -714,6 +783,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             surge = parse_config(args.surge, "surge")
             loon = parse_config(args.loon, "loon")
+            surge.remote_rules = snapshots
+            loon.remote_rules = snapshots
             models = [surge, loon]
             cases = load_route_cases(args.cases)
             findings = sort_findings(

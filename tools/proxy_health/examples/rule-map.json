@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "sets": [
+    {
+      "type": "RULE-SET",
+      "source": "https://raw.githubusercontent.com/godsonkg/pikpak-rules/main/Proxy.list",
+      "file": "rule-snapshots/pikpak-rules-Proxy.list",
+      "sha256": "720861d70d3a0815e5d7f5ea25e29b06d5be40af67c3cc73590aef27a4145735",
+      "origin_commit": "1e1163d5faee7544bdcfe62896bd5e590ac81721",
+      "origin": "https://github.com/godsonkg/pikpak-rules/blob/1e1163d5faee7544bdcfe62896bd5e590ac81721/Proxy.list"
+    },
+    {
+      "type": "RULE-SET",
+      "source": "https://raw.githubusercontent.com/godsonkg/pikpak-rules/main/Direct.list",
+      "file": "rule-snapshots/pikpak-rules-Direct.list",
+      "sha256": "4a133e62d63c121f59dcb749fe9f10e1a817ab8dbf9decc6ca7958764e9efd0c",
+      "origin_commit": "1e1163d5faee7544bdcfe62896bd5e590ac81721",
+      "origin": "https://github.com/godsonkg/pikpak-rules/blob/1e1163d5faee7544bdcfe62896bd5e590ac81721/Direct.list"
+    },
+    {
+      "type": "RULE-SET",
+      "source": "https://raw.githubusercontent.com/godsonkg/emby-rules/main/Emby.list",
+      "file": "rule-snapshots/emby-rules-Emby.list",
+      "sha256": "27e434565ce1e395e1960650cb039bf124e51fa2f1e5b1e60d035eb079f0da89",
+      "origin_commit": "67c62aeb57749c468cf610c58150da1f0c98a7e1",
+      "origin": "https://github.com/godsonkg/emby-rules/blob/67c62aeb57749c468cf610c58150da1f0c98a7e1/Emby.list"
+    }
+  ]
+}
