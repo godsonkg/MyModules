@@ -231,5 +231,45 @@ class OfficialNoticeTests(unittest.TestCase):
         self.assertLessEqual(update_fuel.days_since_update(self.output), 0)
 
 
+# 第三方参考页 2026-10-16 实际正文（日期后多了“起执行（展示日…）”）
+REFERENCE_NEW = """
+<p>2026年10月15日起执行（展示日 2026年10月16日），广州最新油价如下：
+92号汽油为8.63元， 95号汽油为9.35元， 98号汽油为11.35元， 0号柴油为8.31元。</p>
+<table><tr><td>油品类型</td><td>价格（元/升）</td></tr>
+<tr><td>广州92#汽油</td><td>8.63</td></tr><tr><td>广州95#汽油</td><td>9.35</td></tr>
+<tr><td>广州98#汽油</td><td>11.35</td></tr><tr><td>广州0#柴油</td><td>8.31</td></tr></table>
+"""
+
+REFERENCE_OLD = (
+    "<p>2026年9月13日，广州最新油价如下：92号汽油为8.40元， 95号汽油为9.10元，"
+    " 98号汽油为11.00元， 0号柴油为8.10元。</p>"
+)
+
+
+class ReferencePageTests(unittest.TestCase):
+    def test_parses_current_layout(self):
+        self.assertEqual(
+            ("2026-10-15", [8.63, 9.35, 11.35, 8.31]),
+            update_fuel.parse_reference_prices(REFERENCE_NEW),
+        )
+
+    def test_still_parses_previous_layout(self):
+        self.assertEqual(
+            ("2026-09-13", [8.4, 9.1, 11.0, 8.1]),
+            update_fuel.parse_reference_prices(REFERENCE_OLD),
+        )
+
+    def test_falls_back_to_price_table_when_sentence_missing(self):
+        page = REFERENCE_NEW.replace("98号汽油为11.35元，", "")
+        self.assertEqual(
+            [8.63, 9.35, 11.35, 8.31], update_fuel.parse_reference_prices(page)[1]
+        )
+
+    def test_missing_grade_is_an_error(self):
+        page = REFERENCE_OLD.replace(" 98号汽油为11.00元，", "")
+        with self.assertRaisesRegex(ValueError, "完整的广州油价字段"):
+            update_fuel.parse_reference_prices(page)
+
+
 if __name__ == "__main__":
     unittest.main()

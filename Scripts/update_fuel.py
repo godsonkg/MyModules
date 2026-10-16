@@ -183,22 +183,40 @@ def parse_official_prices(page: str) -> list[float]:
     return prices
 
 
+# 日期后可能带附加说明，例如：
+#   “2026年9月13日，广州最新油价如下：”
+#   “2026年10月15日起执行（展示日 2026年10月16日），广州最新油价如下：”
+REFERENCE_DATE_RE = re.compile(
+    r"(\d{4})年(\d{1,2})月(\d{1,2})日[^，,。]{0,40}[，,]\s*广州最新油价如下"
+)
+REFERENCE_GRADES = (("92", "汽油"), ("95", "汽油"), ("98", "汽油"), ("0", "柴油"))
+
+
+def _reference_price(text: str, number: str, kind: str) -> float | None:
+    label = rf"(?<!\d){number}\s*[号#]\s*{kind}"
+    for pattern in (
+        label + r"为\s*([0-9]+(?:\.[0-9]+)?)\s*元",  # 摘要句：92号汽油为8.63元
+        label + r"\s+([0-9]+(?:\.[0-9]+)?)",  # 价格表：广州92#汽油 8.63
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return round(float(match.group(1)), 2)
+    return None
+
+
 def parse_reference_prices(page: str) -> tuple[str, list[float]]:
     text = page_text(page)
-    pattern = re.compile(
-        r"(\d{4})年(\d{1,2})月(\d{1,2})日，广州最新油价如下：\s*"
-        r"92号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"95号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"98号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"0号柴油为([0-9]+(?:\.[0-9]+)?)元"
-    )
-    match = pattern.search(text)
-    if not match:
+    date_match = REFERENCE_DATE_RE.search(text)
+    if not date_match:
+        raise ValueError("未在数据源页面找到完整的广州油价字段")
+    # 只在“广州最新油价如下”之后取价格，避免命中页面其他位置的数字。
+    body = text[date_match.end():]
+    prices = [_reference_price(body, number, kind) for number, kind in REFERENCE_GRADES]
+    if any(price is None for price in prices):
         raise ValueError("未在数据源页面找到完整的广州油价字段")
 
-    year, month, day = map(int, match.group(1, 2, 3))
+    year, month, day = map(int, date_match.group(1, 2, 3))
     source_date = datetime(year, month, day).strftime("%Y-%m-%d")
-    prices = [round(float(value), 2) for value in match.group(4, 5, 6, 7)]
     validate_prices(prices)
     return source_date, prices
 
