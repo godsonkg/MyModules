@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -35,6 +36,23 @@ TRANSIENT_HTTP_STATUSES = frozenset({408, 429}) | frozenset(range(500, 528))
 # 避免源站长期不可用被软跳过永久掩盖。国内成品油约每 10 个工作日调价一次，
 # 取 45 天可在不误报的前提下兜住长期故障。
 STALE_ALERT_DAYS = 45
+
+# 列表页里的成品油价格公告标题，例如：
+#   “2026年9月24日24时起成品油价格调整”“2026年3月9日24时起成品油价格按机制调整”
+#   “2026年10月15日成品油价格不作调整”（本轮不调价，公告里没有价格表）
+OFFICIAL_NOTICE_RE = re.compile(
+    r'href=["\']([^"\']+)["\'][^>]*>\s*'
+    r'(\d{4})年(\d{1,2})月(\d{1,2})日([^<]*成品油价格[^<]*调整[^<]*)'
+)
+NO_ADJUSTMENT_RE = re.compile(r"(?:不作|不予|暂不|暂停|不)调整")
+
+
+@dataclass(frozen=True)
+class OfficialNotice:
+    url: str
+    date: str
+    title: str
+    adjusted: bool
 
 
 def fetch_page(url: str, *, retries: int = 3, backoff: float = 2.0) -> str:
@@ -69,66 +87,136 @@ def fetch_page(url: str, *, retries: int = 3, backoff: float = 2.0) -> str:
 
 
 def days_since_update(path: Path) -> int | None:
-    """返回现有数据的 updated_at 距今天数；无法判断时返回 None。"""
+    """返回数据最近一次核对到的官方公告距今天数；无法判断时返回 None。
+
+    优先用 latest_notice.date：遇到“不作调整”时 updated_at 不会前进，
+    但只要还能核对到新公告，数据就不算陈旧。
+    """
     try:
-        updated_at = load_current(path).get("updated_at", "")
-        recorded = datetime.strptime(str(updated_at), "%Y-%m-%d")
+        current = load_current(path)
+        notice = current.get("latest_notice") or {}
+        checked = notice.get("date") or current.get("updated_at", "")
+        recorded = datetime.strptime(str(checked), "%Y-%m-%d")
     except (OSError, ValueError, json.JSONDecodeError):
         return None
     return (datetime.now() - recorded).days
 
 
 def page_text(page: str) -> str:
+    # 先去掉脚本、样式和注释，避免页面里的 JS 文本被误当成正文匹配。
+    page = re.sub(r"(?is)<(script|style)\b.*?</\1\s*>", " ", page)
+    page = re.sub(r"(?s)<!--.*?-->", " ", page)
     text = re.sub(r"<[^>]+>", " ", page)
     return html.unescape(re.sub(r"\s+", " ", text))
 
 
+def find_official_notices(index_page: str) -> list[OfficialNotice]:
+    """按列表页顺序（新到旧）返回所有成品油价格公告，含“不作调整”公告。"""
+    notices = []
+    for match in OFFICIAL_NOTICE_RE.finditer(index_page):
+        year, month, day = map(int, match.group(2, 3, 4))
+        title = f"{year}年{month}月{day}日{html.unescape(match.group(5)).strip()}"
+        notices.append(
+            OfficialNotice(
+                url=urljoin(OFFICIAL_INDEX_URL, match.group(1)),
+                date=datetime(year, month, day).strftime("%Y-%m-%d"),
+                title=title,
+                adjusted=not NO_ADJUSTMENT_RE.search(title),
+            )
+        )
+    return notices
+
+
+def find_latest_notice(index_page: str) -> OfficialNotice | None:
+    """最新一条成品油价格公告（可能是“不作调整”），用于记录核对状态。"""
+    notices = find_official_notices(index_page)
+    return notices[0] if notices else None
+
+
 def find_latest_official_article(index_page: str) -> tuple[str, str]:
-    pattern = re.compile(
-        r'href=["\']([^"\']+)["\'][^>]*>\s*'
-        r'(\d{4})年(\d{1,2})月(\d{1,2})日[^<]*成品油价格[^<]*调整'
+    """最近一次真正调价的公告。
+
+    “不作调整”公告没有价格表，现行价格仍是上一次调价公告里的价格，
+    所以要跳过它们，而不是拿去解析。
+    """
+    for notice in find_official_notices(index_page):
+        if notice.adjusted:
+            return notice.url, notice.date
+    raise ValueError("未在广东省发改委列表找到最新成品油调价公告")
+
+
+# 牌号标签兼容“92号汽油”“92#汽油”等写法；(?<!\d) 防止“10号柴油”误命中 0 号。
+OFFICIAL_LABELS = (
+    r"(?<!\d)92\s*[号#]\s*汽油",
+    r"(?<!\d)95\s*[号#]\s*汽油",
+    r"(?<!\d)0\s*[号#]\s*柴油",
+)
+
+
+def _official_price(text: str, label: str) -> float | None:
+    # 标准价格表：牌号、两列元/吨价格、元/升零售价。
+    match = re.search(
+        label + r"[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)", text
     )
-    match = pattern.search(index_page)
-    if not match:
-        raise ValueError("未在广东省发改委列表找到最新成品油调价公告")
-    effective_date = datetime(
-        int(match.group(2)), int(match.group(3)), int(match.group(4))
-    ).strftime("%Y-%m-%d")
-    return urljoin(OFFICIAL_INDEX_URL, match.group(1)), effective_date
+    if match:
+        return round(float(match.group(1)), 2)
+    # 兜底：表格排版变化时，取牌号之后一小段文字中第一个落在元/升合理区间的小数。
+    label_match = re.search(label, text)
+    if not label_match:
+        return None
+    window = text[label_match.end(): label_match.end() + 160]
+    for value in re.findall(r"(?<![\d.])(\d{1,2}\.\d{1,2})(?![\d.])", window):
+        price = float(value)
+        if 4.0 <= price <= 20.0:
+            return round(price, 2)
+    return None
 
 
 def parse_official_prices(page: str) -> list[float]:
     text = page_text(page)
-    patterns = (
-        r"92号汽油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
-        r"95号汽油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
-        r"0号柴油[^0-9]{0,40}\d{4,5}\s+\d{4,5}\s+([0-9]+(?:\.[0-9]+)?)",
-    )
     prices = []
-    for pattern in patterns:
-        match = re.search(pattern, text)
-        if not match:
+    for label in OFFICIAL_LABELS:
+        price = _official_price(text, label)
+        if price is None:
             raise ValueError("广东省发改委公告的价格表解析不完整")
-        prices.append(round(float(match.group(1)), 2))
+        prices.append(price)
     return prices
+
+
+# 日期后可能带附加说明，例如：
+#   “2026年9月13日，广州最新油价如下：”
+#   “2026年10月15日起执行（展示日 2026年10月16日），广州最新油价如下：”
+REFERENCE_DATE_RE = re.compile(
+    r"(\d{4})年(\d{1,2})月(\d{1,2})日[^，,。]{0,40}[，,]\s*广州最新油价如下"
+)
+REFERENCE_GRADES = (("92", "汽油"), ("95", "汽油"), ("98", "汽油"), ("0", "柴油"))
+
+
+def _reference_price(text: str, number: str, kind: str) -> float | None:
+    label = rf"(?<!\d){number}\s*[号#]\s*{kind}"
+    for pattern in (
+        label + r"为\s*([0-9]+(?:\.[0-9]+)?)\s*元",  # 摘要句：92号汽油为8.63元
+        label + r"\s+([0-9]+(?:\.[0-9]+)?)",  # 价格表：广州92#汽油 8.63
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return round(float(match.group(1)), 2)
+    return None
 
 
 def parse_reference_prices(page: str) -> tuple[str, list[float]]:
     text = page_text(page)
-    pattern = re.compile(
-        r"(\d{4})年(\d{1,2})月(\d{1,2})日，广州最新油价如下：\s*"
-        r"92号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"95号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"98号汽油为([0-9]+(?:\.[0-9]+)?)元，\s*"
-        r"0号柴油为([0-9]+(?:\.[0-9]+)?)元"
-    )
-    match = pattern.search(text)
-    if not match:
+    date_match = REFERENCE_DATE_RE.search(text)
+    if not date_match:
+        raise ValueError("未在数据源页面找到完整的广州油价字段")
+    # 只在“广州最新油价如下”之后取价格，避免命中页面其他位置的数字。
+    body = text[date_match.end():]
+    prices = [_reference_price(body, number, kind) for number, kind in REFERENCE_GRADES]
+    if any(price is None for price in prices):
         raise ValueError("未在数据源页面找到完整的广州油价字段")
 
-    year, month, day = map(int, match.group(1, 2, 3))
+    year, month, day = map(int, date_match.group(1, 2, 3))
     source_date = datetime(year, month, day).strftime("%Y-%m-%d")
-    prices = [round(float(value), 2) for value in match.group(4, 5, 6, 7)]
     validate_prices(prices)
     return source_date, prices
 
@@ -176,6 +264,7 @@ def fetch_reference_prices(
 def update_file(output: Path, official_index_url: str, reference_url: str) -> bool:
     index_page = fetch_page(official_index_url)
     official_url, effective_date = find_latest_official_article(index_page)
+    latest_notice = find_latest_notice(index_page)
     official_92, official_95, official_diesel = parse_official_prices(
         fetch_page(official_url)
     )
@@ -219,11 +308,15 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
 
     prices = [official_92, official_95, price_98, official_diesel]
     validate_prices(prices)
+    notice_record = (
+        asdict(latest_notice) if latest_notice else current.get("latest_notice")
+    )
     if (
         existing_prices == prices
         and current.get("price_type") == price_type
         and current.get("source_url") == official_url
         and current.get("reference_updated_at") == reference_date
+        and current.get("latest_notice") == notice_record
     ):
         print(f"价格未变化，保留现有文件: {prices}")
         return False
@@ -244,6 +337,8 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
         "reference_updated_at": reference_date,
         "reference_status": reference_status,
     }
+    if notice_record:
+        data["latest_notice"] = notice_record
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
