@@ -55,13 +55,20 @@ function formatPrice(price) {
   return Number.isFinite(n) ? n.toFixed(2) : String(price);
 }
 
+// 最新公告是“不作调整”时说明一下，免得把较早的调价日期误当成数据过期
+function noticeLine(data) {
+  const n = data.latest_notice;
+  if (!n || !n.date || n.adjusted || n.date === data.updated_at) return '';
+  return `\n最新公告：${n.date} 不作调整，以上价格仍有效`;
+}
+
 function fmt(data, note) {
   const lines = (data.items || []).map(it => `${it.name}: ${formatPrice(it.price)} ${data.unit || ''}`);
   const priceType = data.price_type ? `\n口径：${data.price_type}` : '';
   const src = data.source ? `\n来源：${data.source}` : '';
   return {
     title: `${PROV}油价`,
-    content: `更新时间：${data.updated_at || '未知'}\n` + lines.join('\n') + priceType + src +
+    content: `更新时间：${data.updated_at || '未知'}` + noticeLine(data) + '\n' + lines.join('\n') + priceType + src +
       '\n提示：加油站实际售价可能不同' + (note ? `\n${note}` : ''),
     icon: 'fuelpump.fill',
     'icon-color': '#1E90FF'

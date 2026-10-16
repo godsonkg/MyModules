@@ -22,10 +22,6 @@ jobs:
       - name: Run fuel updater regression tests
         run: python3 -m unittest discover -s Scripts -p "test_update_fuel.py" -v
 
-      - name: TEMP diagnose official page
-        continue-on-error: true
-        run: python3 Scripts/_diag_fuel.py
-
       - name: Fetch and validate current prices
         run: python3 Scripts/update_fuel.py
 
