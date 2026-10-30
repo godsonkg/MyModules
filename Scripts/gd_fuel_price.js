@@ -66,9 +66,13 @@ function fmt(data, note) {
   const lines = (data.items || []).map(it => `${it.name}: ${formatPrice(it.price)} ${data.unit || ''}`);
   const priceType = data.price_type ? `\n口径：${data.price_type}` : '';
   const src = data.source ? `\n来源：${data.source}` : '';
+  const checked = data.checked_at ? `\n最近核对：${data.checked_at}` : '';
+  const checkedTime = Date.parse(`${data.checked_at}T00:00:00+08:00`);
+  const stale = Number.isFinite(checkedTime) && Date.now() - checkedTime > 3 * 86400000
+    ? '\n提醒：超过三天未成功核对，请留意更新状态' : '';
   return {
     title: `${PROV}油价`,
-    content: `更新时间：${data.updated_at || '未知'}` + noticeLine(data) + '\n' + lines.join('\n') + priceType + src +
+    content: `调价日期：${data.updated_at || '未知'}` + checked + noticeLine(data) + '\n' + lines.join('\n') + priceType + src + stale +
       '\n提示：加油站实际售价可能不同' + (note ? `\n${note}` : ''),
     icon: 'fuelpump.fill',
     'icon-color': '#1E90FF'

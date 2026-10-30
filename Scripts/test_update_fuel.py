@@ -91,6 +91,26 @@ class UpdateFuelTests(unittest.TestCase):
 
         self.assertFalse(self.run_update(None))
 
+    def test_next_day_verification_advances_checked_date_without_changing_prices(self):
+        self.write_existing()
+        with patch.object(update_fuel, "china_today", return_value="2026-10-29"):
+            self.assertTrue(self.run_update(None))
+        with patch.object(update_fuel, "china_today", return_value="2026-10-30"):
+            self.assertTrue(self.run_update(None))
+            self.assertFalse(self.run_update(None))
+        data = json.loads(self.output.read_text(encoding="utf-8"))
+        self.assertEqual("2026-10-30", data["checked_at"])
+        self.assertEqual("2026-09-15", data["updated_at"])
+        self.assertEqual([7.2, 7.8, 9.9, 6.9], update_fuel.current_prices(data))
+
+    def test_official_network_failure_does_not_refresh_checked_date(self):
+        self.write_existing()
+        before = self.output.read_bytes()
+        with patch.object(update_fuel, "fetch_page", side_effect=update_fuel.NetworkError()):
+            with self.assertRaises(update_fuel.NetworkError):
+                update_fuel.update_file(self.output, "https://official.example", "https://reference.example")
+        self.assertEqual(before, self.output.read_bytes())
+
     def test_reference_recovery_refreshes_98_price(self):
         self.write_existing()
 
@@ -174,6 +194,12 @@ class OfficialNoticeTests(unittest.TestCase):
         self.assertEqual("2026-10-15", notice.date)
         self.assertFalse(notice.adjusted)
         self.assertEqual("2026年10月15日成品油价格不作调整", notice.title)
+
+    def test_new_prices_wait_until_midnight_china_time(self):
+        with patch.object(update_fuel, "china_today", return_value="2026-09-24"):
+            self.assertEqual("2026-09-11", update_fuel.find_latest_official_article(REAL_INDEX)[1])
+        with patch.object(update_fuel, "china_today", return_value="2026-09-25"):
+            self.assertEqual("2026-09-24", update_fuel.find_latest_official_article(REAL_INDEX)[1])
 
     def test_mechanism_adjustment_counts_as_adjustment(self):
         notices = update_fuel.find_official_notices(REAL_INDEX)

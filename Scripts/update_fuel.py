@@ -10,7 +10,7 @@ import re
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
@@ -21,6 +21,11 @@ OFFICIAL_INDEX_URL = "https://drc.gd.gov.cn/spjg/index.html"
 REFERENCE_URL = "https://oil.qqday.com/city/440100.htm"
 DEFAULT_OUTPUT = Path("data/guangdong_fuel.json")
 PRICE_NAMES = ("92#", "95#", "98#", "0# 柴油")
+CHINA_TIME = timezone(timedelta(hours=8))
+
+
+def china_today() -> str:
+    return datetime.now(CHINA_TIME).strftime("%Y-%m-%d")
 
 
 class NetworkError(Exception):
@@ -140,6 +145,9 @@ def find_latest_official_article(index_page: str) -> tuple[str, str]:
     所以要跳过它们，而不是拿去解析。
     """
     for notice in find_official_notices(index_page):
+        # 公告常在下午发布，24 时才生效；增加抓取频次后不能提前展示新价。
+        if "24时" in notice.title and notice.date >= china_today():
+            continue
         if notice.adjusted:
             return notice.url, notice.date
     raise ValueError("未在广东省发改委列表找到最新成品油调价公告")
@@ -308,6 +316,7 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
 
     prices = [official_92, official_95, price_98, official_diesel]
     validate_prices(prices)
+    checked_at = china_today()
     notice_record = (
         asdict(latest_notice) if latest_notice else current.get("latest_notice")
     )
@@ -317,6 +326,8 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
         and current.get("source_url") == official_url
         and current.get("reference_updated_at") == reference_date
         and current.get("latest_notice") == notice_record
+        and current.get("checked_at") == checked_at
+        and current.get("reference_status") == reference_status
     ):
         print(f"价格未变化，保留现有文件: {prices}")
         return False
@@ -325,6 +336,7 @@ def update_file(output: Path, official_index_url: str, reference_url: str) -> bo
         "province": "广东",
         "city": "广州",
         "updated_at": effective_date,
+        "checked_at": checked_at,
         "unit": "元/升",
         "price_type": price_type,
         "items": [

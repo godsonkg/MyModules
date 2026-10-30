@@ -3,7 +3,7 @@ name: Update Guangdong Fuel Price
 on:
   workflow_dispatch:
   schedule:
-    - cron: "20 0 * * *"  # 北京时间 08:20
+    - cron: "20 */4 * * *"  # 每四小时核对，包含北京时间 00:20（Actions 可能延迟）
 
 permissions:
   contents: write
