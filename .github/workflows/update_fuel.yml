@@ -15,6 +15,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -23,9 +24,12 @@ jobs:
         run: python3 -m unittest discover -s Scripts -p "test_update_fuel.py" -v
 
       - name: Fetch and validate current prices
+        id: fetch
         run: python3 Scripts/update_fuel.py
 
       - name: Commit price changes
+        # Publish degraded health even when the fetch step correctly fails.
+        if: ${{ always() && steps.fetch.outcome != 'skipped' && steps.fetch.outcome != '' }}
         run: |
           if git diff --quiet -- data/guangdong_fuel.json; then
             echo "Fuel prices are unchanged"

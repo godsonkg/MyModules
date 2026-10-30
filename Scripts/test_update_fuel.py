@@ -1,6 +1,9 @@
 import json
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -31,6 +34,9 @@ def existing_data() -> dict:
 
 class UpdateFuelTests(unittest.TestCase):
     def setUp(self) -> None:
+        # Failure fixtures must not emit real GitHub error annotations.
+        self.enterContext(redirect_stderr(io.StringIO()))
+        self.enterContext(redirect_stdout(io.StringIO()))
         self.temp_dir = tempfile.TemporaryDirectory()
         self.output = Path(self.temp_dir.name) / "fuel.json"
 
@@ -79,11 +85,13 @@ class UpdateFuelTests(unittest.TestCase):
         self.assertEqual([7.2, 7.8, 9.9, 6.9], update_fuel.current_prices(data))
         self.assertEqual("2026-09-15", data["updated_at"])
         self.assertEqual("2026-09-01", data["reference_updated_at"])
-        self.assertIn("本次不可用", data["reference_status"])
+        self.assertEqual("retained", data["reference_state"])
 
-    def test_optional_reference_failure_requires_a_historical_98_price(self):
-        with self.assertRaisesRegex(ValueError, "没有可沿用的历史 98#"):
-            self.run_update(None)
+    def test_without_historical_98_still_publishes_official_prices(self):
+        self.assertTrue(self.run_update(None))
+        data = json.loads(self.output.read_text(encoding="utf-8"))
+        self.assertEqual([7.2, 7.8, None, 6.9], update_fuel.current_prices(data))
+        self.assertEqual("unavailable", data["reference_state"])
 
     def test_repeated_reference_failure_does_not_rewrite_unchanged_fallback(self):
         self.write_existing()
@@ -178,6 +186,7 @@ def data_matching_0924() -> dict:
 
 class OfficialNoticeTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.enterContext(redirect_stdout(io.StringIO()))
         self.temp_dir = tempfile.TemporaryDirectory()
         self.output = Path(self.temp_dir.name) / "fuel.json"
 
@@ -295,6 +304,101 @@ class ReferencePageTests(unittest.TestCase):
         page = REFERENCE_OLD.replace(" 98号汽油为11.00元，", "")
         with self.assertRaisesRegex(ValueError, "完整的广州油价字段"):
             update_fuel.parse_reference_prices(page)
+
+    def test_conflicting_summary_and_table_is_rejected(self):
+        with self.assertRaises(ValueError):
+            update_fuel.parse_reference_prices(REFERENCE_NEW.replace("98号汽油为11.35元", "98号汽油为12.35元"))
+
+
+class ReliabilityTests(unittest.TestCase):
+    setUp = UpdateFuelTests.setUp
+    tearDown = UpdateFuelTests.tearDown
+    write_existing = UpdateFuelTests.write_existing
+    run_update = UpdateFuelTests.run_update
+    def test_nested_links_are_sorted_and_future_notices_not_applied(self):
+        index = '<a href="/spjg/content/old">2026年9月24日24时起成品油价格调整</a>'
+        index += '<a href="/spjg/content/new"><span>2026年10月29日</span>24 时起成品油价格调整</a>'
+        with patch.object(update_fuel, "china_today", return_value="2026-10-29"):
+            self.assertEqual("2026-09-24", update_fuel.find_latest_official_article(index)[1])
+        with patch.object(update_fuel, "china_today", return_value="2026-10-30"):
+            self.assertEqual("2026-10-29", update_fuel.find_latest_official_article(index)[1])
+
+    def test_missing_price_never_borrows_from_next_row(self):
+        page = ADJUSTMENT_ARTICLE.replace("<td>8.63</td>", "<td>待发布</td>")
+        with self.assertRaises(ValueError):
+            update_fuel.parse_official_prices(page)
+
+    def test_duplicate_conflicting_price_rows_rejected(self):
+        page = ADJUSTMENT_ARTICLE + '<table><tr><td>92号汽油</td><td>9.1</td></tr></table>'
+        with self.assertRaises(ValueError):
+            update_fuel.parse_official_prices(page)
+
+    def test_transient_http_and_network_errors_are_retried(self):
+        for error in (HTTPError("https://example.com", 522, "timeout", {}, None), URLError("unreachable")):
+            with patch.object(update_fuel, "urlopen", side_effect=error) as fetch, patch.object(update_fuel.time, "sleep"):
+                with self.assertRaises(update_fuel.NetworkError):
+                    update_fuel.fetch_page("https://example.com")
+                self.assertEqual(3, fetch.call_count)
+
+    def test_permanent_http_error_is_not_retried(self):
+        with patch.object(update_fuel, "urlopen", side_effect=HTTPError("https://example.com", 404, "missing", {}, None)) as fetch:
+            with self.assertRaises(HTTPError):
+                update_fuel.fetch_page("https://example.com")
+            self.assertEqual(1, fetch.call_count)
+
+    def test_failure_preserves_prices_and_checked_date_then_recovers(self):
+        self.write_existing()
+        with patch.object(update_fuel, "china_today", return_value="2026-10-29"):
+            self.run_update(None)
+        with patch.object(update_fuel, "china_today", return_value="2026-10-30"):
+            self.assertEqual(0, update_fuel.record_failure(self.output, update_fuel.NetworkError("timeout")))
+            data = update_fuel.load_current(self.output)
+            self.assertEqual("2026-10-29", data["checked_at"])
+            self.assertEqual("degraded", data["official_status"])
+            self.assertEqual([7.2, 7.8, 9.9, 6.9], update_fuel.current_prices(data))
+            self.run_update(None)
+            self.assertEqual("ok", update_fuel.load_current(self.output)["official_status"])
+
+    def test_long_outage_escalates_by_check_age_not_price_age(self):
+        self.write_existing()
+        with patch.object(update_fuel, "china_today", return_value="2026-10-26"):
+            self.run_update(None)
+        with patch.object(update_fuel, "china_today", return_value="2026-10-30"):
+            self.assertEqual(1, update_fuel.record_failure(self.output, update_fuel.NetworkError()))
+            self.assertEqual("stale", update_fuel.load_current(self.output)["official_status"])
+
+    def test_atomic_replace_failure_keeps_original_snapshot(self):
+        self.write_existing()
+        before = self.output.read_bytes()
+        with patch.object(update_fuel.os, "replace", side_effect=OSError("disk error")):
+            with self.assertRaises(OSError):
+                self.run_update(None)
+        self.assertEqual(before, self.output.read_bytes())
+
+    def test_old_index_cannot_roll_back_published_prices(self):
+        self.write_existing()
+        data = update_fuel.load_current(self.output)
+        data["updated_at"] = "2026-10-29"
+        self.output.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "拒绝回滚"):
+            self.run_update(None)
+
+    def test_only_unchanged_notices_reverify_previous_official_article(self):
+        data = data_matching_0924()
+        self.output.write_text(json.dumps(data), encoding="utf-8")
+        index = '<a href="/spjg/content/unchanged">2026年10月15日成品油价格不作调整</a>'
+        with patch.object(update_fuel, "fetch_page", side_effect=[index, ADJUSTMENT_ARTICLE]) as fetch, patch.object(update_fuel, "fetch_reference_prices", return_value=None):
+            self.assertTrue(update_fuel.update_file(self.output, "index", "reference"))
+            self.assertEqual(data["source_url"], fetch.call_args_list[1].args[0])
+
+    def test_parse_failure_marks_health_but_keeps_snapshot(self):
+        self.write_existing()
+        self.run_update(None)
+        checked = update_fuel.load_current(self.output)["checked_at"]
+        self.assertEqual(1, update_fuel.record_failure(self.output, ValueError("layout changed")))
+        data = update_fuel.load_current(self.output)
+        self.assertEqual(checked, data["checked_at"])
+        self.assertEqual("degraded", data["official_status"])
 
 
 if __name__ == "__main__":

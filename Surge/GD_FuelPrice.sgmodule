@@ -1,5 +1,5 @@
 #!name=广东油价·面板
-#!desc=显示广东 92#/95#/0# 柴油最高零售价（省发改委）和广州 98# 参考价。数据每天由 GitHub Actions 更新；加油站实际价格会因品牌和优惠不同。
+#!desc=显示广东 92#/95#/0# 柴油官方最高零售价与广州 98# 参考价，每四小时核对；失败时明确显示上次价格和核对状态。加油站实际价格因品牌和优惠不同。
 #!author=godsonkg
 #!homepage=https://github.com/godsonkg/MyModules
 #!icon=fuelpump.fill
