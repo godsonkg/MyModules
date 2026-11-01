@@ -1,0 +1,23 @@
+#!name=百度 App 去广告（轻量版）
+#!desc=2026.11.01-r1 · 拦截百度开屏广告投放、百度联盟广告和 HTTPDNS，无需开启 MITM。对整台设备生效。
+#!system=ios
+
+# 需要 Surge iOS 5.8+，在规则模式下使用。
+# 只收广告专用域名，不拦 mbd.baidu.com（百度 App 主接口，信息流、搜索都走它）、
+# m.baidu.com、www.baidu.com、*.bdstatic.com 这些共用域名。
+# 域名来自 fmz200、zirawell、KiceHub 的百度规则，去掉了整段拦 *.baidu.com 的写法。
+
+[Rule]
+# 百度开屏、插屏广告投放（百度 App、地图、网盘等共用）
+DOMAIN,afd.baidu.com,REJECT,extended-matching
+# 百度广告视频素材
+DOMAIN,fcvbjbcebos.baidu.com,REJECT,extended-matching
+DOMAIN,nadvideo2.baidu.com,REJECT,extended-matching
+# 百度联盟（App 内 SDK 和网页广告）
+DOMAIN-SUFFIX,mobads.baidu.com,REJECT,extended-matching
+DOMAIN,mobads-logs.baidu.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pos.baidu.com,REJECT,extended-matching
+DOMAIN-SUFFIX,cpro.baidu.com,REJECT,extended-matching
+# 百度 HTTPDNS：挡掉后 App 改用系统 DNS，请求走域名，上面的规则才拦得到
+DOMAIN,httpdns.baidubce.com,REJECT,extended-matching
+IP-CIDR,180.76.76.200/32,REJECT,no-resolve
