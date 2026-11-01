@@ -1,13 +1,14 @@
 #!name=车来了去广告
-#!desc=2026.11.01-r1 · 拦截车来了自有广告、横幅素材和常见广告 SDK；URL 重写部分需要 MITM。对整台设备生效。
+#!desc=2026.11.01-r2 · 拦截车来了开屏、横幅、信息流广告和常见广告 SDK，首页只留站点地图、地铁入口；接口部分需要 MITM。对整台设备生效。
 #!system=ios
 
-# 需要 Surge iOS 5.9.1+，开启重写和 MITM，并信任 Surge 证书。
+# 需要 Surge iOS 5.9.1+，开启重写、脚本和 MITM，并信任 Surge 证书。
 # [Rule] 里的域名拦截不依赖 MITM，没开 MITM 也能挡住大部分广告。
-# 只拦广告路径，不拦公交、站点、天气、通知等业务接口，也不整段拦 chelaile.net.cn。
-# 规则参考 CaoXiaoMann/XiaoMan（车来了 7.6.7 抓包整理）和 fmz200/wool_scripts。
+# 只动广告相关接口，不拦公交、站点、天气、通知这些业务接口，也不整段拦 chelaile.net.cn。
+# 规则参考：CaoXiaoMann/XiaoMan（7.6.7 抓包）、可莉 Chelaile_remove_ads（2026-10-02）、
+# ddgksf2013 CheLaiLeAds、chikacya CheLaiLeBlockAD、fmz200。
 # 已在 [Rule] 里整段拦截的域名（ad.、atrace.、logs.chelaile.net.cn、yg84.com 等）不再写重写，也不加 MITM。
-# 自检：Safari 打开 http://chelaile-check.invalid/?v=r1（必须是 http）
+# 自检：Safari 打开 http://chelaile-check.invalid/?v=r2（必须是 http）
 
 [Rule]
 # 车来了自有广告、埋点
@@ -49,24 +50,36 @@ DOMAIN,rtb.julang.taobao.com,REJECT,extended-matching
 DOMAIN,orzonera.yingt.fun,REJECT,extended-matching
 
 [URL Rewrite]
-# 广告配置、首页运营位、激励任务
+# 广告配置
 ^https?://(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn/adpub/ _ reject
-^https?://(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn/goocity/flowPos/(?:home|listByPos)\? _ reject
-^https?://(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn/encourage/activity/control\? _ reject
+^https?://web\.chelaile\.net\.cn/api/adpub/ _ reject
+^https?://cdn\.\w+\.chelaileapp\.cn/(?:api/)?adpub _ reject
 ^https?://[^/]*chelaile(?:\.net|app)\.cn/goocity/advert/ _ reject
 ^https?://[^/]*chelaile(?:\.net|app)\.cn/feserver/vip-page/images/ _ reject
-^https?://web\.chelaile\.net\.cn/api/adpub/ad _ reject
-^https?://cdn\.\w+\.chelaileapp\.cn/(?:api/)?adpub _ reject
 # 车来了数据分析上报
 ^https?://(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn/DataAnalysisInfo/ _ reject
 # 广告图片
-^https?://pic1\.chelaile\.net\.cn/adv/ _ reject
-# App 有时用 IP 直连，只有明文 http 能匹配到
-^http://\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?/(?:adpub/|goocity/flowPos/(?:home|listByPos)\?|encourage/activity/control\?) _ reject
+^https?://pic\d\.chelaile\.net\.cn/adv/ _ reject
+# App 用 IP 直连时（如 124.70.194.16）只有明文 http 能匹配到
+^http://(?:\d+\.){3}\d+(?::\d+)?/adpub/ _ reject
 
 [Map Local]
-# 只说明模块已加载、本机重写在工作，不代表 MITM 成功或广告已拦住
-^http://chelaile-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="车来了去广告 2026.11.01-r1 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+# 这几个接口直接拒绝会让页面空一块或反复重试，改成返回空数据。格式 **YGKJ{...}YGKJ##，取自可莉的模块
+# 首页金刚位：只留站点地图、地铁两个入口
+^https?://(?:(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn|(?:\d+\.){3}\d+(?::\d+)?)/goocity/flowPos/home\? data-type=base64 data="KipZR0tKeyJqc29uciI6eyJzdGF0dXMiOiIwMCIsImRhdGEiOnsiYWR2ZXJ0TGlzdCI6W3siaWQiOjEwNiwidGl0bGUiOiLnq5nngrnlnLDlm74iLCJpY29uVXJsIjoiaHR0cHM6Ly9pbWFnZTMuY2hlbGFpbGUubmV0LmNuLzg5aUlxeGFNLnBuZyIsImxpbmtVcmwiOiIiLCJhZFR5cGUiOjUsInNob3dSZWREb3QiOjAsInVwZGF0ZVRpbWUiOjAsImFwcElkIjoiIiwiYXBwUGF0aCI6IiIsImJ1YmJsZU9yZGVyIjowLCJoNVR5cGUiOjB9LHsiaWQiOjEsInRpdGxlIjoi5Zyw6ZOBIiwiaWNvblVybCI6Imh0dHBzOi8vaW1hZ2UzLmNoZWxhaWxlLm5ldC5jbi9yZXdyTENXWS5wbmciLCJsaW5rVXJsIjoiaHR0cHM6Ly93ZWIuY2hlbGFpbGUubmV0LmNuL21ldHJvL2luZGV4Lmh0bWw/aDVfc3RhdHNfcmVmZXJlcj1pY29uIiwiYWRUeXBlIjoyLCJzaG93UmVkRG90IjowLCJ1cGRhdGVUaW1lIjowLCJhcHBJZCI6IiIsImFwcFBhdGgiOiIiLCJidWJibGVPcmRlciI6MCwiaDVUeXBlIjowfV19fX1ZR0tKIyM=" status-code=200 header="Content-Type:application/json"
+# “我的”页运营位
+^https?://(?:(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn|(?:\d+\.){3}\d+(?::\d+)?)/goocity/flowPos/listByPos\? data-type=base64 data="KipZR0tKe31ZR0tKIyM=" status-code=200 header="Content-Type:application/json"
+# 激励广告任务
+^https?://(?:(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn|(?:\d+\.){3}\d+(?::\d+)?)/encourage/activity/control\? data-type=base64 data="KipZR0tKe31ZR0tKIyM=" status-code=200 header="Content-Type:application/json"
+# 线路详情页信息流
+^https?://web\.chelaile\.net\.cn/api/operative_position/infoflow/getInfo\? data-type=base64 data="KipZR0tKe31ZR0tKIyM=" status-code=200 header="Content-Type:application/json"
+^https?://cdn\.web\.chelaile\.net\.cn/info-flow/index\.html data-type=text data="" status-code=404
+# 自检：只说明模块已加载、本机重写在工作，不代表 MITM 成功或广告已拦住
+^http://chelaile-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="车来了去广告 2026.11.01-r2 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+
+[Script]
+# 删掉开屏、插屏、信息流等广告开关，以及 HTTPDNS / 备用域名（防止 App 改用 IP 直连绕过 MITM）
+chelaile_ads = type=http-response,pattern=^https?://(?:(?:cdn\.)?api\.chelaile(?:\.net|app)\.cn|web\.chelaile\.net\.cn/api|(?:\d+\.){3}\d+(?::\d+)?)/bus-side/appToggle/getStatus\?,requires-body=true,timeout=10,script-path=https://raw.githubusercontent.com/godsonkg/MyModules/main/Scripts/chelaile_ads.js
 
 [MITM]
-hostname = %APPEND% api.chelaile.net.cn,cdn.api.chelaile.net.cn,web.chelaile.net.cn,pic1.chelaile.net.cn,api.chelaileapp.cn,cdn.*.chelaileapp.cn
+hostname = %APPEND% api.chelaile.net.cn,cdn.api.chelaile.net.cn,web.chelaile.net.cn,cdn.web.chelaile.net.cn,pic*.chelaile.net.cn,api.chelaileapp.cn,cdn.*.chelaileapp.cn
