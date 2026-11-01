@@ -1,0 +1,18 @@
+name: Amap module tests
+on:
+  pull_request:
+    paths: ['Scripts/test_amap_module.cjs', 'Surge/Amap/**', '.github/workflows/amap_tests.yml']
+  push:
+    paths: ['Scripts/test_amap_module.cjs', 'Surge/Amap/**', '.github/workflows/amap_tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: jq --version
+      - run: node --test Scripts/test_amap_module.cjs

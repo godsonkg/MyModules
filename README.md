@@ -8,6 +8,7 @@
 | 节点 IP 质量检测 | `Surge/IPQuality.sgmodule` | 面板：指定节点的 IP 类型、流媒体和 AI 解锁情况 |
 | 广东油价 | `Surge/GD_FuelPrice.sgmodule` | 面板：广东油价，每天自动更新 |
 | 番茄小说去广告 | `Surge/Fanqie/` | 轻量版 / 增强版，见[单独说明](Surge/Fanqie/README.md) |
+| 高德地图去广告 | `Surge/Amap/` | 开屏、首页推广、打车弹窗、营销活动，见[单独说明](Surge/Amap/README.md) |
 | 百度 App 去广告 | `Surge/Baidu/` | 轻量版，只拦广告域名，见[单独说明](Surge/Baidu/README.md) |
 | 车来了去广告 | `Surge/CheLaiLe/` | 域名拦截 + 广告接口重写 + 配置清洗，见[单独说明](Surge/CheLaiLe/README.md) |
 | Gemini 分流规则 | `Surge/Gemini.list` | Gemini、AI Studio、NotebookLM 等 Google AI 域名 |
@@ -125,6 +126,7 @@ MyModules/
 │  ├─ Gemini.list                    Gemini 规则（Gemini 为旧文件名）
 │  ├─ Fanqie/                        番茄小说去广告
 │  ├─ Baidu/                         百度 App 去广告
+│  ├─ Amap/                          高德地图去广告
 │  └─ CheLaiLe/                      车来了去广告
 ├─ Scripts/
 │  ├─ ipquality_surge.js
