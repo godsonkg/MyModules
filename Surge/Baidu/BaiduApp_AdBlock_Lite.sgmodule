@@ -1,5 +1,5 @@
 #!name=百度 App 去广告（轻量版）
-#!desc=2026.11.01-r1 · 拦截百度开屏广告投放、百度联盟广告和 HTTPDNS，无需开启 MITM。对整台设备生效。
+#!desc=2026.11.01-r2 · 拦截百度开屏和弹窗广告素材、百度联盟广告和 HTTPDNS，无需开启 MITM。对整台设备生效。
 #!system=ios
 
 # 需要 Surge iOS 5.8+，在规则模式下使用。
@@ -13,6 +13,13 @@ DOMAIN,afd.baidu.com,REJECT,extended-matching
 # 百度广告视频素材
 DOMAIN,fcvbjbcebos.baidu.com,REJECT,extended-matching
 DOMAIN,nadvideo2.baidu.com,REJECT,extended-matching
+# 百度推广图片（v2fly 域名表标为 @ads）
+DOMAIN,ecma.bdimg.com,REJECT,extended-matching
+DOMAIN,ecmb.bdimg.com,REJECT,extended-matching
+DOMAIN,ecmc.bdimg.com,REJECT,extended-matching
+# 百度自有边缘节点：广告视频主地址被拦后会改从这里拉同一个文件；打开百度出京东弹窗时，这里有一笔 474 KB 的下载
+# 如果百度 App 里正常视频放不出来，删掉这一行
+DOMAIN-SUFFIX,jomoxc.com,REJECT,extended-matching
 # 百度联盟（App 内 SDK 和网页广告）
 DOMAIN-SUFFIX,mobads.baidu.com,REJECT,extended-matching
 DOMAIN,mobads-logs.baidu.com,REJECT,extended-matching

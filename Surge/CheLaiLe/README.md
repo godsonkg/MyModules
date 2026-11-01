@@ -68,7 +68,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/CheLaiLe/CheLaiL
 - `image3.chelaile.net.cn`：混着定位、站点图标这些业务图片
 - `goocity/config/notices`、`led-weather/condition_brief`：可莉把通知和天气也清空了，但通知里有线路调整这类有用信息
 - `goocity/city!` 底栏精简（墨鱼、chikacya 有）：属于界面精简，不是广告
-- `jomoxc.com`：百度广告视频的备用回源，但它是共用动态 CDN
+- `jomoxc.com`：百度广告视频的备用回源，是百度自己的边缘节点，可能也承载百度的正常视频。百度 App 去广告模块 r2 起会拦它，两个模块一起开时生效
 - `webcast-open.douyin.com`、`lf-cdn-tos.bytescm.com`：抖音直播和字节通用 CDN
 - `mssdk.volces.com`、`apmplus.volces.com`、`vod-license-m.volccdn.com`：火山引擎的安全、监控、播放器授权，不是广告本身
 - `feed-image.baidu.com`、`qh-material.taobao.com`、`gungnir.xiaojukeji.com`、`tdid.m.qq.com`：百度、淘宝、滴滴、腾讯 App 自己也在用

@@ -2,7 +2,7 @@
 
 | 模块 | 版本 | 说明 |
 | --- | --- | --- |
-| [轻量版](BaiduApp_AdBlock_Lite.sgmodule) | 2026.11.01-r1 | 只拦广告专用域名和 HTTPDNS，不用 MITM |
+| [轻量版](BaiduApp_AdBlock_Lite.sgmodule) | 2026.11.01-r2 | 只拦广告专用域名、广告素材和 HTTPDNS，不用 MITM |
 
 ## 安装
 
@@ -17,6 +17,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Baidu/BaiduApp_A
 ## 能挡住什么
 
 - **开屏广告**：百度系 App 的开屏、插屏广告从 `afd.baidu.com` 下发，素材视频在 `fcvbjbcebos.baidu.com`、`nadvideo2.baidu.com`
+- **广告素材**：推广图片 `ecma` / `ecmb` / `ecmc.bdimg.com`；广告视频的备用地址 `*.jomoxc.com`（见下）
 - **百度联盟广告**：`mobads`、`pos`、`cpro`，包括其他 App 里的百度广告 SDK 和网页上的百度联盟广告
 - **HTTPDNS**：百度 App 会用 `httpdns.baidubce.com` / `180.76.76.200` 自己解析域名。挡掉后它改用系统 DNS，Surge 的域名规则才能匹配上
 
@@ -25,6 +26,12 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Baidu/BaiduApp_A
 **首页信息流里的广告挡不住。** 百度 App 首页“推荐”里的广告和正常内容是同一个接口（`mbd.baidu.com`）一起下发的，这个域名还承载搜索、登录和整个信息流，不能整个拦。要去掉这类广告，得 MITM `mbd.baidu.com` 再改响应内容，需要先抓包看清格式。
 
 **搜索结果页里的推广挡不住。** 结果页是 `m.baidu.com` 的网页，推广条目夹在正常结果里，同样要 MITM 后改页面内容。
+
+### 关于 jomoxc.com
+
+r1 装上后打开百度仍有京东弹窗。请求记录里，弹窗出现时 `<一串十六进制>.jomoxc.com:9082` 下载了 474 KB，是那一屏最大的一笔。车来了模块的参考作者也观察到：百度广告视频的主地址 `nadvideo2.baidu.com` 被拦后，SDK 会改从 `jomoxc.com` 拉同一个文件。
+
+`jomoxc.com` 是百度自己的边缘节点（v2fly 域名表把它和 `jomodns` 一起归在百度下），**也可能承载百度 App 里的正常视频**。如果拦了之后信息流视频、好看视频放不出来，在模块里删掉 `jomoxc.com` 那一行就行。
 
 **开屏可能还会出现一次。** 百度 App 会缓存上次拉到的开屏素材，挡住 `afd` 后可能还会再播一次缓存。清缓存或重装后就不会了。
 
@@ -59,9 +66,12 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Baidu/BaiduApp_A
 - `sofire.baidu.com`：百度的安全风控 SDK，拦了可能登录失败
 - `t1x.baidu.com` 这类数字子域：有的是百度图片缩略图
 - `180.76.76.76`：百度公共 DNS，不是 HTTPDNS
+- `hectorstatic.baidu.com`：有的广告列表拦它，但也有去广告规则专门放行，百度 App 的动态模块可能在上面
+- `a1.alibabausercontent.com`：阿里通用 CDN，淘宝小程序等也在用
 
 ## 更新记录
 
+- **r2**：打开百度仍有京东弹窗，按请求记录补上推广图片 `ecma` / `ecmb` / `ecmc.bdimg.com` 和广告视频备用地址 `jomoxc.com`。
 - **r1**：首个版本，只有域名规则。
 
 ## 参考
