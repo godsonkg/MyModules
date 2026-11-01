@@ -45,6 +45,7 @@ const MAP_LOCAL = [
   'https://m5-zb.amap.com/ws/promotion-web/resource/home?x=1',
   'https://m5.amap.com/ws/shield/search_business/process/marketingOperationStructured?x=1',
   'https://m5.amap.com/ws/shield/search_poi/tips_adv?x=1',
+  'https://m5-zb.amap.com/ws/boss/order_web/friendly_information?x=1',
 ];
 const REWRITE = ['https://m5.amap.com/ws/asa/ads_attribution?x=1'];
 const JQ = [
@@ -81,6 +82,10 @@ test('feature endpoints are left alone', () => {
 });
 test('every https URL we touch is covered by MITM', () => {
   for (const u of [...MAP_LOCAL, ...REWRITE, ...JQ]) assert.ok(inMitm(u), u);
+});
+test('AMDC rule matches any UA containing AMap', () => {
+  const amdc = m.rules.find(l => l.includes('amdc'));
+  assert.ok(amdc && amdc.includes('USER-AGENT,*AMap*'), amdc);
 });
 test('rule lines have no trailing comments', () => {
   for (const l of m.rules) assert.ok(!l.includes('#'), l);

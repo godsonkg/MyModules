@@ -2,7 +2,7 @@
 
 | 模块 | 版本 | 说明 |
 | --- | --- | --- |
-| [高德地图去广告](Amap_AdBlock.sgmodule) | 2026.11.01-r1 | 去掉开屏、首页推广、打车页弹窗、搜索营销位和活动入口，要开 MITM |
+| [高德地图去广告](Amap_AdBlock.sgmodule) | 2026.11.01-r2 | 去掉开屏、首页推广、打车页弹窗、搜索营销位和活动入口，要开 MITM |
 
 ## 安装
 
@@ -27,6 +27,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Amap/Amap_AdBloc
 | 首页推广卡片、右上角动图 | `amap-navigation/main-page-assets` | 返回空数据 |
 | 首页底部推荐信息流 | `ai.amap.com/v1/ai_rec/home_qs` | 返回空数据 |
 | 打车页红点、推广资源位 | `m5-zb.amap.com/ws/promotion-web/resource` | 返回空数据 |
+| 打车页顶部提示条 | `boss/order_web/…_information` | 返回空数据 |
 | 打车页工具栏气泡、弹窗 | `boss/car/order/content_info` | jq 删 `kingToolBoxBubble`、`popup` |
 | 顺风车乘客页横幅 | `hitch/passenger/content_info` | jq 删 `banner` |
 | 附近推荐里的运营活动 | `smartui/near_recommend` | jq 删 `operation_activity` |
@@ -37,7 +38,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Amap/Amap_AdBloc
 
 ### AMDC
 
-高德用阿里的 AMDC（`amdc.m.taobao.com/amdc/mobileDispatch`）下发 IP 地址，拿到后部分接口会用 IP 直连，绕过域名，MITM 和重写都拦不到。模块按 UA（`AMapiPhone*`）只挡高德的这条请求，淘宝、支付宝不受影响。这是明文 http 请求，不需要 MITM。
+高德用阿里的 AMDC（`amdc.m.taobao.com/amdc/mobileDispatch`）下发 IP 地址，拿到后部分接口会用 IP 直连，绕过域名，MITM 和重写都拦不到。模块按 UA 只挡高德的这条请求：UA 里任何位置带 `AMap` 都算（参考墨鱼的 `amdc.js`），淘宝、支付宝不受影响。r1 要求 UA 以 `AMapiPhone` 开头，高德改了 UA 格式就会漏掉。这是明文 http 请求，不需要 MITM。
 
 ## 和可莉版的区别
 
@@ -53,7 +54,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/Amap/Amap_AdBloc
 
 ## 确认模块生效
 
-在 Safari 里输入（必须是 http）：`http://amap-check.invalid/?v=r1`，应显示“r1 已加载”。
+在 Safari 里输入（必须是 http）：`http://amap-check.invalid/?v=r2`，应显示“r2 已加载”。
 
 这只能说明模块开着、重写在工作。广告有没有拦住，要看 Surge「最近请求」里对应请求有没有命中本模块的 Map Local、Body Rewrite 或 REJECT。
 
@@ -81,6 +82,7 @@ node --test Scripts/test_amap_module.cjs
 
 ## 更新记录
 
+- **r2**：参考墨鱼：AMDC 的 UA 匹配从 `AMapiPhone*` 放宽到 `*AMap*`；打车页顶部提示条（`boss/order_web/…_information`）返回空数据。
 - **r1**：首个版本。以可莉 2026-10-20 版为主，只保留去广告和营销的部分；补上 AMDC、`tips_adv`、广告归因；jq 表达式加了出错保护。
 
 ## 参考
@@ -88,7 +90,7 @@ node --test Scripts/test_amap_module.cjs
 各家 2026-11-01 抓取的版本：
 
 - 可莉 Amap_remove_ads（2026-10-20，[镜像](https://github.com/KIDA-MNESIA/gadgets/blob/main/module/kelee/Amap_remove_ads.sgmodule)）
-- [ddgksf2013 AmapAds](https://github.com/ddgksf2013/Rewrite/blob/master/AdBlock/AmapAds.conf)（2025-12-06）
+- [ddgksf2013（墨鱼）AmapAds](https://github.com/ddgksf2013/Rewrite/blob/master/AdBlock/AmapAds.conf)（2025-12-06）、[amdc.js](https://github.com/ddgksf2013/Scripts/blob/master/amdc.js)（2025-09-06）：广告归因、打车页提示条、AMDC 的 UA 写法。他的 `amap.js` 是加密混淆的，没有引用，同一批接口改用可莉的 jq 写法
 - [zirawell amap](https://github.com/zirawell/R-Store/blob/main/Rule/Surge/Adblock/App/G/%E9%AB%98%E5%BE%B7%E5%9C%B0%E5%9B%BE/amap.sgmodule)（2026-05-09）
 - [Jard1n 高德模块](https://github.com/Jard1n/VPN_Tool/blob/main/Surge/Module/Amap.sgmodule)、[BlackSpacee（RuCu6 / kokoryh 规则）](https://github.com/BlackSpacee/Surge/blob/main/Module/AdBlock/aMap.sgmodule)：AMDC 规则
 - Surge 手册：[Body Rewrite](https://manual.nssurge.com/http/body-rewrite.html)、[Map Local](https://manual.nssurge.com/http/map-local.html)、[MITM](https://manual.nssurge.com/http/mitm.html)

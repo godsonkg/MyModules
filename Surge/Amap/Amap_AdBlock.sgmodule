@@ -1,19 +1,20 @@
 #!name=高德地图去广告
-#!desc=2026.11.01-r1 · 去掉开屏、首页推广、打车页弹窗、搜索营销位和各类活动入口；导航、路线、搜索、钱包等功能不动。需要 MITM。
+#!desc=2026.11.01-r2 · 去掉开屏、首页推广、打车页弹窗、搜索营销位和各类活动入口；导航、路线、搜索、钱包等功能不动。需要 MITM。
 #!system=ios
 
 # 需要 Surge iOS 5.14.0+（[Body Rewrite] 的 jq 改写），开启重写和 MITM，并信任 Surge 证书。
 # 只删广告和营销字段，不精简“我的”页、不删钱包、顺风车、评论、搜索历史这些功能。
-# 规则以可莉 Amap_remove_ads（2026-10-20）为主，参考 ddgksf2013 AmapAds（2025-12-06）、
+# 规则以可莉 Amap_remove_ads（2026-10-20）为主，参考 ddgksf2013（墨鱼）AmapAds（2025-12-06）和 amdc.js、
 # zirawell amap（2026-05-09）、RuCu6 / Jard1n 的高德模块。
-# 自检：Safari 打开 http://amap-check.invalid/?v=r1（必须是 http）
+# 自检：Safari 打开 http://amap-check.invalid/?v=r2（必须是 http）
 
 [Rule]
 # 开屏广告实时请求和广告图片 CDN
 DOMAIN,amap-aos-info-nogw.amap.com,REJECT,extended-matching
 DOMAIN,free-aos-cdn-image.amap.com,REJECT,extended-matching
 # 高德用阿里 AMDC 下发 IP 直连地址，挡掉后请求走域名，MITM 才能生效；按 UA 只挡高德
-AND,((URL-REGEX,^http://amdc\.m\.taobao\.com/amdc/mobileDispatch),(USER-AGENT,AMapiPhone*)),REJECT
+# UA 里任何位置带 AMap 都算（参考墨鱼 amdc.js），高德改 UA 格式也不会漏
+AND,((URL-REGEX,^http://amdc\.m\.taobao\.com/amdc/mobileDispatch),(USER-AGENT,*AMap*)),REJECT
 
 [URL Rewrite]
 # 广告归因上报
@@ -29,11 +30,13 @@ AND,((URL-REGEX,^http://amdc\.m\.taobao\.com/amdc/mobileDispatch),(USER-AGENT,AM
 (?i)^https://ai\.amap\.com/v1/ai_rec/home_qs\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 # 打车页红点、角标、推广资源位
 (?i)^https://m5-zb\.amap\.com/ws/promotion-web/resource(?:/home)?\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+# 打车页顶部提示条（参考墨鱼 AmapAds）
+(?i)^https://m5-zb\.amap\.com/ws/boss/order_web/\w{8}_information data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 # 搜索页营销位
 (?i)^https://m5\.amap\.com/ws/shield/search_business/process/marketingOperationStructured\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 (?i)^https://m5\.amap\.com/ws/shield/search_poi/tips_adv\? data-type=text data="{}" status-code=200 header="Content-Type:application/json"
 # 自检：只说明模块已加载、本机重写在工作，不代表 MITM 成功或广告已拦住
-^http://amap-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="高德地图去广告 2026.11.01-r1 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+^http://amap-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="高德地图去广告 2026.11.01-r2 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
 
 [Body Rewrite]
 # jq 出错（比如 data 不是对象）时原样返回，不会把响应弄坏
