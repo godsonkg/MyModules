@@ -2,7 +2,7 @@
 
 | 模块 | 版本 | 说明 |
 | --- | --- | --- |
-| [车来了去广告](CheLaiLe_AdBlock.sgmodule) | 2026.11.01-r3 | 域名拦截，加广告接口重写和配置清洗，接口部分要开 MITM |
+| [车来了去广告](CheLaiLe_AdBlock.sgmodule) | 2026.11.01-r4 | 域名拦截，加广告接口重写和配置清洗，接口部分要开 MITM |
 
 ## 安装
 
@@ -45,13 +45,13 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/CheLaiLe/CheLaiL
 
 ## 确认模块生效
 
-在 Safari 里输入（必须是 http）：`http://chelaile-check.invalid/?v=r3`，应显示“r3 已加载”。
+在 Safari 里输入（必须是 http）：`http://chelaile-check.invalid/?v=r4`，应显示“r4 已加载”。
 
 这只能说明模块开着、重写在工作，不能说明广告已经拦住。广告有没有拦住，要看 Surge「最近请求」里对应请求命中的是不是本模块的 REJECT、Map Local 或脚本。
 
 ## 已知问题
 
-**广告 SDK 和车来了自己的广告、埋点域名用的是静默丢弃。** 穿山甲、广点通、百度联盟、亿广等取广告的接口，以及 `ad.`、`atrace.`、`logs.chelaile.net.cn`，用 `REJECT-DROP`：请求不回应，SDK 等到自己超时（一般几秒）才放弃。直接 `REJECT` 的话 SDK 会立刻重试，r2 第一次打开时一秒内发了 349 个请求，Surge 报“死循环”。代价是开屏广告位可能会多等一两秒才跳过。
+**第一次打开可能报“死循环”。** 广告 SDK 和车来了的日志上报被拒后会立刻重试，第一次打开时 Surge 可能报“过去一秒处理了几百个请求”。Surge 随后会自己把这些地址改为静默丢弃，再打开就没有了，不影响使用。r3 曾经直接写成静默丢弃（`REJECT-DROP`），结果开屏广告又出现了，所以 r4 退回直接拒绝。
 
 **首页入口是写死的。** 首页金刚位只返回“站点地图”和“地铁”两项。所在城市没有地铁时，“地铁”入口可能打不开；车来了以后新增的正常入口也不会显示。
 
@@ -91,7 +91,8 @@ node --test Scripts/test_chelaile_ads.cjs
 
 ## 更新记录
 
-- **r3**：第一次打开车来了时，穿山甲等 SDK 被拒后不停重试，Surge 报“死循环”（一秒 349 个请求）。广告 SDK 取广告的 14 个域名，以及车来了自己的 `ad.`、`atrace.`、`logs.`（`logs.chelaile.net.cn/h52/report` 被拒后也会不停重试），改为 `REJECT-DROP`；素材和第三方日志域名仍用 `REJECT`。
+- **r4**：撤回 r3，规则和 r2 相同，全部改回 `REJECT`。r3 之后开屏又出现了经亿广下发的穿山甲广告（素材是空的），清缓存、重装 App 都还在，具体从哪个请求拿到的没查出来。亿广的上报里穿山甲请求耗时 4.7 秒，推测是 `REJECT-DROP` 让 SDK 一直等到超时，走了另一条取广告的路。
+- **r3**（已撤回）：第一次打开车来了时，穿山甲等 SDK 被拒后不停重试，Surge 报“死循环”（一秒 349 个请求）。广告 SDK 取广告的 14 个域名，以及车来了自己的 `ad.`、`atrace.`、`logs.`（`logs.chelaile.net.cn/h52/report` 被拒后也会不停重试），改为 `REJECT-DROP`；素材和第三方日志域名仍用 `REJECT`。
 - **r2**：参考可莉、墨鱼、chikacya 的最新规则：
   - 新增启动配置清洗脚本，删掉广告开关和 HTTPDNS / 备用域名，减少 IP 直连绕过 MITM
   - 首页金刚位改为只留站点地图、地铁，不再整个拒绝

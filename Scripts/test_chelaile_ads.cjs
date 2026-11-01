@@ -130,13 +130,8 @@ test('base64 Map Local payloads decode to valid YGKJ JSON', () => {
   }
 });
 
-test('ad SDK request domains use REJECT-DROP to avoid retry storms', () => {
+test('ad domains use plain REJECT (REJECT-DROP brought splash ads back in r3)', () => {
   const rules = fs.readFileSync(modulePath, 'utf8').split('\n').filter(l => /^(DOMAIN|DOMAIN-SUFFIX),/.test(l));
-  const policy = host => (rules.find(l => l.split(',')[1] === host) || '').split(',')[2];
-  for (const h of ['logs.chelaile.net.cn', 'ad.chelaile.net.cn', 'atrace.chelaile.net.cn', 'pangolin-sdk-toutiao1.com', 'pangolin-sdk-toutiao.com', 'yg84.com', 'mi.gdt.qq.com', 'mobads.baidu.com']) {
-    assert.equal(policy(h), 'REJECT-DROP', h);
-  }
-  for (const h of ['smartimg.chelaile.net.cn', 'pglstatp-toutiao.com', 'qzs.gdtimg.com']) {
-    assert.equal(policy(h), 'REJECT', h);
-  }
+  assert.ok(rules.length > 0);
+  for (const l of rules) assert.equal(l.split(',')[2], 'REJECT', l);
 });
