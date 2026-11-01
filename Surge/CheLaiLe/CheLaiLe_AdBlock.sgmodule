@@ -1,5 +1,5 @@
 #!name=车来了去广告
-#!desc=2026.11.01-r2 · 拦截车来了开屏、横幅、信息流广告和常见广告 SDK，首页只留站点地图、地铁入口；接口部分需要 MITM。对整台设备生效。
+#!desc=2026.11.01-r3 · 拦截车来了开屏、横幅、信息流广告和常见广告 SDK，首页只留站点地图、地铁入口；接口部分需要 MITM。对整台设备生效。
 #!system=ios
 
 # 需要 Surge iOS 5.9.1+，开启重写、脚本和 MITM，并信任 Surge 证书。
@@ -8,46 +8,48 @@
 # 规则参考：CaoXiaoMann/XiaoMan（7.6.7 抓包）、可莉 Chelaile_remove_ads（2026-10-02）、
 # ddgksf2013 CheLaiLeAds、chikacya CheLaiLeBlockAD、fmz200。
 # 已在 [Rule] 里整段拦截的域名（ad.、atrace.、logs.chelaile.net.cn、yg84.com 等）不再写重写，也不加 MITM。
-# 自检：Safari 打开 http://chelaile-check.invalid/?v=r2（必须是 http）
+# 自检：Safari 打开 http://chelaile-check.invalid/?v=r3（必须是 http）
 
 [Rule]
-# 车来了自有广告、埋点
-DOMAIN,ad.chelaile.net.cn,REJECT,extended-matching
-DOMAIN,atrace.chelaile.net.cn,REJECT,extended-matching
-DOMAIN,logs.chelaile.net.cn,REJECT,extended-matching
+# 广告 SDK 取广告的接口用 REJECT-DROP：直接 REJECT 时 SDK 会立刻重试，一秒几百个请求，Surge 报“死循环”。
+# DROP 让 SDK 等到自己超时再放弃。素材图片和第三方日志上报不会重试，仍用 REJECT。
+# 车来了自有广告、埋点：logs. 的 /h52/report 被 REJECT 后也会不停重试，一并用 DROP
+DOMAIN,ad.chelaile.net.cn,REJECT-DROP,extended-matching
+DOMAIN,atrace.chelaile.net.cn,REJECT-DROP,extended-matching
+DOMAIN,logs.chelaile.net.cn,REJECT-DROP,extended-matching
 # 首页横幅素材 CDN（7.6.7 起 bigIcon 走 cdn.smartimg.chelaile.net.cn）
 DOMAIN-SUFFIX,smartimg.chelaile.net.cn,REJECT,extended-matching
 # 亿广广告联盟
-DOMAIN-SUFFIX,yg84.com,REJECT,extended-matching
+DOMAIN-SUFFIX,yg84.com,REJECT-DROP,extended-matching
 # 穿山甲
-DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT,extended-matching
-DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT,extended-matching
-DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT,extended-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT-DROP,extended-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT-DROP,extended-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT-DROP,extended-matching
 DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT,extended-matching
 DOMAIN-SUFFIX,ctobsnssdk.com,REJECT,extended-matching
 # 腾讯广点通：只拦广告子域，gdt.qq.com 整段是 QQ 体系共用的，不能整个拦
-DOMAIN,mi.gdt.qq.com,REJECT,extended-matching
-DOMAIN,win.gdt.qq.com,REJECT,extended-matching
-DOMAIN,v2mi.gdt.qq.com,REJECT,extended-matching
+DOMAIN,mi.gdt.qq.com,REJECT-DROP,extended-matching
+DOMAIN,win.gdt.qq.com,REJECT-DROP,extended-matching
+DOMAIN,v2mi.gdt.qq.com,REJECT-DROP,extended-matching
 DOMAIN,c3.gdt.qq.com,REJECT,extended-matching
 DOMAIN,v.gdt.qq.com,REJECT,extended-matching
 DOMAIN,t.gdt.qq.com,REJECT,extended-matching
 DOMAIN,v3.gdt.qq.com,REJECT,extended-matching
-DOMAIN,sdk.e.qq.com,REJECT,extended-matching
-DOMAIN,sdkquic.e.qq.com,REJECT,extended-matching
+DOMAIN,sdk.e.qq.com,REJECT-DROP,extended-matching
+DOMAIN,sdkquic.e.qq.com,REJECT-DROP,extended-matching
 DOMAIN,pgdt.ugdtimg.com,REJECT,extended-matching
 DOMAIN,adsmind.ugdtimg.com,REJECT,extended-matching
 DOMAIN,qzs.gdtimg.com,REJECT,extended-matching
-DOMAIN,tencent-ssp.66mobi.com,REJECT,extended-matching
+DOMAIN,tencent-ssp.66mobi.com,REJECT-DROP,extended-matching
 # 百度广告
-DOMAIN-SUFFIX,mobads.baidu.com,REJECT,extended-matching
+DOMAIN-SUFFIX,mobads.baidu.com,REJECT-DROP,extended-matching
 DOMAIN,mobads-logs.baidu.com,REJECT,extended-matching
 DOMAIN-SUFFIX,pos.baidu.com,REJECT,extended-matching
 DOMAIN,nadvideo2.baidu.com,REJECT,extended-matching
 # 其他广告联盟
-DOMAIN-SUFFIX,1rtb.com,REJECT,extended-matching
-DOMAIN,rtb.julang.taobao.com,REJECT,extended-matching
-DOMAIN,orzonera.yingt.fun,REJECT,extended-matching
+DOMAIN-SUFFIX,1rtb.com,REJECT-DROP,extended-matching
+DOMAIN,rtb.julang.taobao.com,REJECT-DROP,extended-matching
+DOMAIN,orzonera.yingt.fun,REJECT-DROP,extended-matching
 
 [URL Rewrite]
 # 广告配置
@@ -75,7 +77,7 @@ DOMAIN,orzonera.yingt.fun,REJECT,extended-matching
 ^https?://web\.chelaile\.net\.cn/api/operative_position/infoflow/getInfo\? data-type=base64 data="KipZR0tKe31ZR0tKIyM=" status-code=200 header="Content-Type:application/json"
 ^https?://cdn\.web\.chelaile\.net\.cn/info-flow/index\.html data-type=text data="" status-code=404
 # 自检：只说明模块已加载、本机重写在工作，不代表 MITM 成功或广告已拦住
-^http://chelaile-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="车来了去广告 2026.11.01-r2 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
+^http://chelaile-check\.invalid(?::80)?/(?:\?[^#]*)?$ data-type=text data="车来了去广告 2026.11.01-r3 已加载，本机重写正常。广告有没有拦住，要看最近请求里的命中记录。" status-code=200 header="Content-Type:text/plain; charset=utf-8|Cache-Control:no-store"
 
 [Script]
 # 删掉开屏、插屏、信息流等广告开关，以及 HTTPDNS / 备用域名（防止 App 改用 IP 直连绕过 MITM）
