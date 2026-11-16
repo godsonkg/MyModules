@@ -2,7 +2,7 @@
 
 | 模块 | 版本 | 说明 |
 | --- | --- | --- |
-| [车来了去广告](CheLaiLe_AdBlock.sgmodule) | 2026.11.01-r4 | 域名拦截，加广告接口重写和配置清洗，接口部分要开 MITM |
+| [车来了去广告](CheLaiLe_AdBlock.sgmodule) | 2026.11.16-r5 | 域名拦截，加广告接口重写和配置清洗，接口部分要开 MITM |
 
 ## 安装
 
@@ -45,7 +45,7 @@ https://raw.githubusercontent.com/godsonkg/MyModules/main/Surge/CheLaiLe/CheLaiL
 
 ## 确认模块生效
 
-在 Safari 里输入（必须是 http）：`http://chelaile-check.invalid/?v=r4`，应显示“r4 已加载”。
+在 Safari 里输入（必须是 http）：`http://chelaile-check.invalid/?v=r5`，应显示“r5 已加载”。
 
 这只能说明模块开着、重写在工作，不能说明广告已经拦住。广告有没有拦住，要看 Surge「最近请求」里对应请求命中的是不是本模块的 REJECT、Map Local 或脚本。
 
@@ -91,6 +91,7 @@ node --test Scripts/test_chelaile_ads.cjs
 
 ## 更新记录
 
+- **r5**：跟进 CaoXiaoMann 2026-11-14 的更新：拦截首页横幅的 IP 直连投放源 `8.134.241.67`；首页金刚位和“我的”页运营位的规则覆盖 `flowPos/home_old` 和不带参数的请求。可莉、墨鱼的车来了规则这段时间没有变化。
 - **r4**：撤回 r3，规则和 r2 相同，全部改回 `REJECT`。r3 之后开屏又出现了经亿广下发的穿山甲广告（素材是空的），清缓存、重装 App 都还在，具体从哪个请求拿到的没查出来。亿广的上报里穿山甲请求耗时 4.7 秒，推测是 `REJECT-DROP` 让 SDK 一直等到超时，走了另一条取广告的路。
 - **r3**（已撤回）：第一次打开车来了时，穿山甲等 SDK 被拒后不停重试，Surge 报“死循环”（一秒 349 个请求）。广告 SDK 取广告的 14 个域名，以及车来了自己的 `ad.`、`atrace.`、`logs.`（`logs.chelaile.net.cn/h52/report` 被拒后也会不停重试），改为 `REJECT-DROP`；素材和第三方日志域名仍用 `REJECT`。
 - **r2**：参考可莉、墨鱼、chikacya 的最新规则：

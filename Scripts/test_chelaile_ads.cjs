@@ -74,6 +74,9 @@ const REWRITE = [
 ];
 const MAP_LOCAL = [
   'https://api.chelaile.net.cn/goocity/flowPos/home?a=1',
+  'https://api.chelaile.net.cn/goocity/flowPos/home_old?a=1',
+  'https://cdn.api.chelaileapp.cn/goocity/flowPos/home',
+  'https://api.chelaile.net.cn/goocity/flowPos/listByPos/',
   'https://cdn.api.chelaileapp.cn/goocity/flowPos/home?a=1',
   'http://124.70.194.16/goocity/flowPos/listByPos?a=1',
   'https://api.chelaile.net.cn/goocity/flowPos/listByPos?a=1',
@@ -90,6 +93,7 @@ const KEEP = [
   'https://api.chelaile.net.cn/bus/line!lineDetail.action?x',
   'https://api.chelaileapp.cn/bus/stop!nearlines.action?x',
   'https://api.chelaile.net.cn/goocity/city/list',
+  'https://api.chelaile.net.cn/goocity/flowPos/homepage?x',
   'https://api.chelaile.net.cn/goocity/config/notices?x',
   'https://api.chelaile.net.cn/led-weather/v2/condition_brief?x',
   'https://pic1.chelaile.net.cn/station/a.png',
@@ -134,4 +138,5 @@ test('ad domains use plain REJECT (REJECT-DROP brought splash ads back in r3)', 
   const rules = fs.readFileSync(modulePath, 'utf8').split('\n').filter(l => /^(DOMAIN|DOMAIN-SUFFIX),/.test(l));
   assert.ok(rules.length > 0);
   for (const l of rules) assert.equal(l.split(',')[2], 'REJECT', l);
+  assert.ok(fs.readFileSync(modulePath, 'utf8').includes('IP-CIDR,8.134.241.67/32,REJECT,no-resolve'));
 });
