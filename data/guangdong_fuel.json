@@ -30,11 +30,13 @@
   "reference_updated_at": "2026-11-12",
   "reference_status": "第三方参考价已与本轮官方调价同步",
   "reference_state": "synced",
-  "official_status": "ok",
+  "official_status": "degraded",
   "latest_notice": {
     "url": "https://drc.gd.gov.cn/spjg/content/post_4979522.html",
     "date": "2026-11-12",
     "title": "2026年11月12日24时起成品油价格调整",
     "adjusted": true
-  }
+  },
+  "last_attempt_at": "2026-11-26",
+  "update_message": "官方核对失败，显示上次成功数据"
 }
